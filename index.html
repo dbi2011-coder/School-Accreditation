@@ -12,23 +12,37 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
     <style>
         :root {
             --etec-primary: #3A2375;
+            --etec-primary-light: #523499;
+            --etec-secondary: #6B4897;
             --etec-pink: #C82269;
             --etec-orange: #E77B26;
+            --etec-blue: #2A72B5;
+            --level-excellence: #1F7A4C;
+            --level-progress: #27AE60;
+            --level-launch: #E77B26;
+            --level-readiness: #C82269;
             --bg-main: #F4F5F8;
             --bg-card: #FFFFFF;
             --border-color: #E2E8F0;
             --text-main: #1A1A1A;
             --text-muted: #64748B;
-            --font-family-arabic: 'Cairo', system-ui, sans-serif;
+            --text-on-primary: #FFFFFF;
+            --font-family-arabic: 'Cairo', system-ui, -apple-system, sans-serif;
             --status-pending: #E77B26;
             --status-approved: #27AE60;
             --status-rejected: #C82269;
             --status-waiting: #64748B;
+            --level-low: #E74C3C;
+            --level-medium: #F39C12;
+            --level-high: #3498DB;
+            --level-very-high: #27AE60;
+            --level-no-evidence: #95A5A6;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -49,7 +63,19 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #1a0a3e 0%, #3A2375 30%, #6B4897 60%, #C82269 100%);
             padding: 20px;
+            position: relative;
+            overflow: hidden;
         }
+        
+        .login-container::before, .login-container::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .login-container::before { width: 400px; height: 400px; top: -100px; right: -100px; }
+        .login-container::after { width: 300px; height: 300px; bottom: -50px; left: -50px; }
         
         .login-wrapper {
             display: flex;
@@ -58,20 +84,27 @@
             width: 100%;
             max-width: 500px;
             gap: 25px;
+            position: relative;
+            z-index: 10;
         }
         
-        .login-hero { text-align: center; color: white; }
+        .login-hero { text-align: center; color: white; margin-bottom: 5px; }
         
         .school-logo-top {
             width: 80px; height: 80px; border-radius: 50%;
             background: white; display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 12px; border: 3px solid var(--etec-pink);
+            margin: 0 auto 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden; border: 3px solid var(--etec-pink);
         }
         
         .school-logo-top i { font-size: 40px; color: var(--etec-primary); }
         
-        .login-hero h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
-        .login-hero p { font-size: 14px; opacity: 0.9; }
+        .login-hero h1 {
+            font-size: 28px; font-weight: 800; margin-bottom: 6px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .login-hero p { font-size: 14px; opacity: 0.9; font-weight: 400; }
         
         .login-card {
             background: white; border-radius: 20px;
@@ -82,13 +115,21 @@
         .login-card-body { padding: 30px; }
         
         .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; }
+        .form-group label {
+            display: block; margin-bottom: 6px;
+            font-weight: 600; color: var(--text-main); font-size: 13px;
+        }
         
         .form-control {
             width: 100%; padding: 12px 15px;
             border: 2px solid var(--border-color); border-radius: 10px;
             font-family: var(--font-family-arabic); font-size: 14px;
-            background: #fafafa;
+            transition: all 0.3s; background: #fafafa;
+        }
+        
+        .form-control:focus {
+            outline: none; border-color: var(--etec-primary);
+            background: white; box-shadow: 0 0 0 3px rgba(58, 35, 117, 0.1);
         }
         
         .login-btn {
@@ -96,66 +137,78 @@
             background: linear-gradient(135deg, var(--etec-pink), #E73C7E);
             color: white; border: none; border-radius: 10px;
             font-family: var(--font-family-arabic); font-size: 15px; font-weight: 700;
-            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+            cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         
-        .login-footer { text-align: center; color: rgba(255, 255, 255, 0.9); }
-        .rights-text { font-size: 13px; font-weight: 700; color: white; }
-        .developer-text { font-size: 11px; color: rgba(255, 255, 255, 0.8); }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(200, 34, 105, 0.4); }
+        
+        .login-footer { text-align: center; color: rgba(255, 255, 255, 0.9); width: 100%; max-width: 500px; }
+        .rights-text { font-size: 13px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        .developer-text { font-size: 11px; color: rgba(255, 255, 255, 0.8); font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-top: 3px; }
         .footer-divider { width: 70%; height: 1px; background: rgba(255, 255, 255, 0.3); margin: 8px auto; }
 
         .app-container { display: flex; min-height: 100vh; }
         
         .sidebar {
             width: 280px; background: var(--etec-primary);
-            color: white; position: fixed; top: 0; right: 0; bottom: 0;
+            color: var(--text-on-primary); position: fixed; top: 0; right: 0; bottom: 0;
             z-index: 1000; overflow-y: auto;
         }
         
-        .sidebar-header { padding: 25px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: center; }
-        .sidebar-header h2 { font-size: 20px; font-weight: 700; }
+        .sidebar-header {
+            padding: 25px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+        }
+        
+        .sidebar-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 5px; }
         .sidebar-header p { font-size: 13px; opacity: 0.8; }
         .sidebar-menu { padding: 20px 0; }
         
         .menu-item {
             padding: 15px 20px; display: flex; align-items: center;
-            cursor: pointer; border-right: 4px solid transparent;
+            cursor: pointer; transition: all 0.3s; border-right: 4px solid transparent;
         }
         
         .menu-item:hover, .menu-item.active {
             background: rgba(255,255,255,0.15); border-right-color: var(--etec-pink);
         }
         
-        .menu-item i { margin-left: 15px; font-size: 20px; width: 24px; }
+        .menu-item i { margin-left: 15px; font-size: 20px; width: 24px; text-align: center; }
         .menu-item span { font-size: 15px; font-weight: 600; }
         
         .main-content { flex: 1; margin-right: 280px; display: flex; flex-direction: column; min-height: 100vh; }
         
         .top-header {
             background: var(--bg-card); border-bottom: 2px solid var(--border-color);
-            padding: 15px 30px; display: flex; align-items: center;
-            position: sticky; top: 0; z-index: 999;
+            padding: 15px 30px; display: flex; align-items: center; justify-content: flex-start;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 999;
         }
         
         .user-greeting { display: flex; align-items: center; gap: 10px; }
+        
         .user-avatar {
             background: var(--etec-pink); color: white; width: 40px; height: 40px;
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700;
         }
-        .user-greeting-text { font-size: 16px; font-weight: 700; }
-        .user-role-text { font-size: 13px; color: var(--text-muted); }
+        
+        .user-greeting-text { font-size: 16px; font-weight: 700; color: var(--text-main); }
+        .user-role-text { font-size: 13px; color: var(--text-muted); font-weight: 600; }
         
         .content-body { padding: 30px; flex: 1; }
         
         .content-header {
             background: var(--bg-card); border-radius: 12px; padding: 20px;
-            margin-bottom: 20px;
+            margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
+        
         .content-header h1 { color: var(--etec-primary); font-size: 24px; font-weight: 700; }
         
         .etec-card {
             background: var(--bg-card); border-radius: 12px;
             border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             padding: 20px; margin-bottom: 20px;
         }
         
@@ -164,6 +217,7 @@
             border-bottom: 2px solid var(--bg-main);
             padding-bottom: 15px; margin-bottom: 15px;
         }
+        
         .etec-card-title { color: var(--etec-primary); font-weight: 700; font-size: 18px; }
         
         .btn-etec-primary, .btn-etec-secondary, .btn-etec-warning, .btn-etec-success, .btn-etec-danger {
@@ -171,101 +225,229 @@
             padding: 10px 20px; border: none; border-radius: 8px;
             cursor: pointer; font-size: 15px;
             display: inline-flex; align-items: center; justify-content: center;
-            gap: 8px; min-width: 120px;
+            gap: 8px; transition: all 0.3s ease; white-space: nowrap;
+            vertical-align: middle; line-height: 1.5; min-width: 120px;
+            text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .btn-etec-primary { background-color: var(--etec-pink); color: #fff; }
+        .btn-etec-primary:hover { background-color: #a81a56; }
         .btn-etec-secondary { background-color: var(--etec-primary); color: #fff; }
+        .btn-etec-secondary:hover { background-color: #2b1a5e; }
+        .btn-etec-success { background-color: var(--level-progress); color: #fff; padding: 5px 15px; min-width: auto; }
+        .btn-etec-danger { background-color: var(--level-readiness); color: #fff; padding: 5px 15px; min-width: auto; }
         .btn-etec-warning { background-color: var(--status-pending); color: #fff; }
-        .btn-etec-success { background-color: var(--status-approved); color: #fff; padding: 5px 15px; min-width: auto; }
-        .btn-etec-danger { background-color: var(--status-rejected); color: #fff; padding: 5px 15px; min-width: auto; }
         
-        .btn-sm { padding: 5px 10px; font-size: 13px; min-width: auto; border-radius: 6px; }
+        .btn-sm {
+            padding: 5px 10px; font-size: 13px; min-width: auto;
+            border-radius: 6px; display: inline-flex;
+            align-items: center; justify-content: center; gap: 5px;
+        }
         
         .etec-table {
             width: 100%; border-collapse: collapse;
             margin: 15px 0; background-color: var(--bg-card);
             border-radius: 8px; overflow: hidden;
         }
+        
         .etec-table th {
             background-color: var(--etec-primary); color: white;
             padding: 12px; font-weight: 600; text-align: right;
         }
-        .etec-table td { padding: 12px; border-bottom: 1px solid var(--border-color); }
         
-        .badge-status-pending { background-color: var(--status-pending); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
-        .badge-status-approved { background-color: var(--status-approved); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
-        .badge-status-rejected { background-color: var(--status-rejected); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
-        .badge-status-waiting { background-color: var(--status-waiting); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+        .etec-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+        
+        .badge-status-pending { background-color: var(--status-pending); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
+        .badge-status-approved { background-color: var(--status-approved); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
+        .badge-status-rejected { background-color: var(--status-rejected); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
+        .badge-status-waiting { background-color: var(--status-waiting); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
         
         .badge-level { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
-        .badge-low { background-color: #E74C3C; }
-        .badge-medium { background-color: #F39C12; }
-        .badge-high { background-color: #3498DB; }
-        .badge-very-high { background-color: #27AE60; }
-        .badge-no-evidence { background-color: #95A5A6; }
+        .badge-low { background-color: var(--level-low); }
+        .badge-medium { background-color: var(--level-medium); }
+        .badge-high { background-color: var(--level-high); }
+        .badge-very-high { background-color: var(--level-very-high); }
+        .badge-no-evidence { background-color: var(--level-no-evidence); }
         
-        .rejection-box { background: #fff0f5; border: 2px solid var(--status-rejected); border-radius: 8px; padding: 15px; margin: 10px 0; }
-        .rejection-box h4 { color: var(--status-rejected); margin-bottom: 10px; }
-        .rejection-item { padding: 8px; border-bottom: 1px solid #ffd6e7; }
-        
-        .modal-overlay {
-            position: fixed; top: 0; right: 0; bottom: 0; left: 0;
-            background: rgba(0, 0, 0, 0.6); z-index: 2000;
-            display: flex; justify-content: center; align-items: center;
+        .rejection-box {
+            background: #fff0f5; border: 2px solid var(--status-rejected);
+            border-radius: 8px; padding: 15px; margin: 10px 0;
         }
         
+        .rejection-box h4 { color: var(--status-rejected); margin-bottom: 10px; font-size: 15px; }
+        .rejection-item { padding: 8px; border-bottom: 1px solid #ffd6e7; font-size: 14px; }
+        .rejection-item:last-child { border-bottom: none; }
+        .rejection-item strong { color: var(--status-rejected); }
+
+        .modal-overlay {
+            position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
+            z-index: 2000; display: flex; justify-content: center; align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        
         .modal-content {
-            background: white; border-radius: 16px;
-            width: 90%; max-width: 500px; overflow: hidden;
+            background: white; border-radius: 16px; padding: 0;
+            width: 90%; max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.3s ease; overflow: hidden;
         }
         
         .modal-header {
             padding: 20px 25px; display: flex; align-items: center;
             justify-content: space-between; border-bottom: 2px solid #f0f0f0;
         }
+        
         .modal-header.success { background: linear-gradient(135deg, #27AE60, #1F7A4C); }
         .modal-header.danger { background: linear-gradient(135deg, #E74C3C, #C0392B); }
         .modal-header.warning { background: linear-gradient(135deg, #F39C12, #E67E22); }
+        .modal-header.info { background: linear-gradient(135deg, #3498DB, #2980B9); }
         .modal-header.primary { background: linear-gradient(135deg, #3A2375, #6B4897); }
         
-        .modal-header .modal-icon { color: white; font-size: 22px; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.2); }
+        .modal-header .modal-icon {
+            color: white; font-size: 22px; width: 50px; height: 50px;
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; background: rgba(255,255,255,0.2);
+        }
+        
         .modal-header .modal-title { color: white; font-size: 18px; font-weight: 700; flex: 1; margin-right: 15px; }
-        .modal-close-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; }
         
+        .modal-close-btn {
+            background: rgba(255,255,255,0.2); border: none; color: white;
+            width: 35px; height: 35px; border-radius: 50%; cursor: pointer;
+            font-size: 16px; display: flex; align-items: center;
+            justify-content: center; transition: background 0.3s;
+        }
+        
+        .modal-close-btn:hover { background: rgba(255,255,255,0.4); }
         .modal-body { padding: 25px; }
-        .modal-message { font-size: 15px; line-height: 1.8; margin-bottom: 20px; }
-        .modal-input { width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-family: var(--font-family-arabic); margin-bottom: 15px; }
-        .modal-select { width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-family: var(--font-family-arabic); margin-bottom: 15px; }
-        .modal-textarea { width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-family: var(--font-family-arabic); min-height: 100px; }
-        .modal-footer { padding: 15px 25px; display: flex; gap: 10px; justify-content: flex-end; border-top: 2px solid #f0f0f0; }
-        .modal-btn { font-family: var(--font-family-arabic); font-weight: 600; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; min-width: 100px; }
+        
+        .modal-message { font-size: 15px; color: var(--text-main); line-height: 1.8; margin-bottom: 20px; }
+        
+        .modal-input {
+            width: 100%; padding: 12px 15px; border: 2px solid var(--border-color);
+            border-radius: 8px; font-family: var(--font-family-arabic);
+            font-size: 14px; transition: border-color 0.3s; margin-bottom: 15px;
+        }
+        
+        .modal-input:focus { outline: none; border-color: var(--etec-primary); }
+        
+        .modal-select {
+            width: 100%; padding: 12px 15px; border: 2px solid var(--border-color);
+            border-radius: 8px; font-family: var(--font-family-arabic);
+            font-size: 14px; transition: border-color 0.3s; margin-bottom: 15px; background: white;
+        }
+        
+        .modal-select:focus { outline: none; border-color: var(--etec-primary); }
+        
+        .modal-footer {
+            padding: 15px 25px; display: flex; gap: 10px;
+            justify-content: flex-end; border-top: 2px solid #f0f0f0; background: #fafafa;
+        }
+        
+        .modal-btn {
+            font-family: var(--font-family-arabic); font-weight: 600;
+            padding: 10px 20px; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 14px; display: inline-flex;
+            align-items: center; gap: 8px; transition: all 0.3s;
+            min-width: 100px; justify-content: center;
+        }
+        
         .modal-btn-primary { background-color: var(--etec-primary); color: white; }
+        .modal-btn-primary:hover { background-color: #2b1a5e; }
         .modal-btn-success { background-color: #27AE60; color: white; }
+        .modal-btn-success:hover { background-color: #1F7A4C; }
         .modal-btn-danger { background-color: #E74C3C; color: white; }
+        .modal-btn-danger:hover { background-color: #C0392B; }
         .modal-btn-secondary { background-color: #E2E8F0; color: var(--text-main); }
+        .modal-btn-secondary:hover { background-color: #CBD5E1; }
         
+        .modal-textarea {
+            width: 100%; padding: 12px; border: 2px solid var(--border-color);
+            border-radius: 8px; font-family: var(--font-family-arabic);
+            font-size: 14px; resize: vertical; min-height: 100px;
+            transition: border-color 0.3s;
+        }
+        
+        .modal-textarea:focus { outline: none; border-color: var(--etec-primary); }
         .modal-form-group { margin-bottom: 15px; }
-        .modal-form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
         
-        .print-checkbox { width: 18px; height: 18px; cursor: pointer; }
+        .modal-form-group label {
+            display: block; margin-bottom: 5px;
+            font-weight: 600; color: var(--text-main); font-size: 14px;
+        }
+
+        .print-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--etec-primary); }
+
+        .report-page {
+            background: #fff; padding: 40px; padding-bottom: 80px;
+            border-radius: 12px; border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 20px; page-break-after: always;
+            position: relative; min-height: 600px;
+        }
         
-        .report-page { background: #fff; padding: 40px; padding-bottom: 80px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 20px; page-break-after: always; position: relative; min-height: 600px; }
-        .cover-domain { display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; background: var(--etec-primary); color: white; }
+        .cover-domain {
+            display: flex; align-items: center; justify-content: center;
+            height: 100vh; text-align: center; background: var(--etec-primary);
+            color: white; padding: 40px;
+        }
+        
         .cover-domain h1 { font-size: 48px; font-weight: 800; }
-        .cover-indicator { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; background: #fafafa; border: 8px solid var(--etec-primary); }
-        .cover-indicator h2 { font-size: 32px; color: #6B4897; }
-        .cover-indicator h3 { font-size: 24px; color: #2A72B5; }
-        .activity-title { text-align: center; font-size: 22px; font-weight: 700; color: var(--etec-primary); margin-bottom: 20px; border-bottom: 2px solid var(--etec-pink); padding-bottom: 10px; }
-        .activity-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .activity-table th, .activity-table td { border: 1px solid var(--border-color); padding: 10px; line-height: 1.8; }
-        .activity-table th { background-color: #f4f5f8; width: 30%; }
-        .images-grid-1 { display: flex; justify-content: center; }
-        .images-grid-1 .media-image { width: 40%; }
-        .images-grid-2, .images-grid-3, .images-grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .media-image img { width: 100%; height: 180px; object-fit: cover; border-radius: 8px; }
-        .principal-signature { position: absolute; bottom: 15px; left: 40px; font-weight: 700; }
-        .pdf-pages-container canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+        
+        .cover-indicator {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; text-align: center; background: #fafafa;
+            border: 8px solid var(--etec-primary); padding: 40px;
+        }
+        
+        .cover-indicator h2 { font-size: 32px; color: var(--etec-secondary); margin-bottom: 20px; }
+        .cover-indicator h3 { font-size: 24px; color: var(--etec-blue); }
+        
+        .activity-title {
+            text-align: center; font-size: 22px; font-weight: 700;
+            color: var(--etec-primary); margin-bottom: 20px;
+            border-bottom: 2px solid var(--etec-pink); padding-bottom: 10px;
+        }
+        
+        .activity-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
+        
+        .activity-table th, .activity-table td {
+            border: 1px solid var(--border-color); padding: 10px;
+            line-height: 1.8; vertical-align: top;
+        }
+        
+        .activity-table th { background-color: #f4f5f8; width: 30%; font-weight: 600; }
+        .activity-table td { width: 70%; }
+        
+        .images-grid-1 { display: flex; justify-content: center; align-items: center; margin-top: 15px; }
+        .images-grid-1 .media-image { width: 40%; max-width: 300px; }
+        .images-grid-2, .images-grid-3, .images-grid-4 {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 15px; margin-top: 15px;
+        }
+        .images-grid-3 .media-image:nth-child(3) { grid-column: 1 / -1; justify-self: center; width: 40%; max-width: 300px; }
+        
+        .media-image img {
+            width: 100%; height: 180px; object-fit: cover;
+            border-radius: 8px; border: 1px solid var(--border-color);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        
+        .principal-signature {
+            position: absolute; bottom: 15px; left: 40px;
+            font-weight: 700; font-size: 15px; text-align: left;
+        }
+        
+        .pdf-pages-container { margin-top: 0; padding: 0; background: #fff; position: relative; }
+        
+        .pdf-pages-container canvas {
+            max-width: 100%; height: auto; margin: 0 auto;
+            display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
         
         .selection-tree { margin-top: 15px; }
         .domain-selection { margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; background: #fafafa; }
@@ -275,13 +457,26 @@
         .indicator-selection { margin: 5px 45px 5px 0; display: flex; align-items: center; }
 
         @media print {
-            body { background: white; }
+            body { background: white; color: #000; }
             .sidebar, .content-header, .no-print, .top-header { display: none !important; }
-            .main-content { margin-right: 0 !important; }
+            .main-content { margin-right: 0 !important; padding: 0 !important; }
             .content-body { padding: 0 !important; }
-            .report-page { border: none; padding: 20px; page-break-after: always; }
-            .cover-domain { background: #3A2375 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .etec-table th { background-color: var(--etec-primary) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .report-page {
+                border: none; border-radius: 0; box-shadow: none;
+                padding: 20px; padding-bottom: 70px;
+                width: 100%; margin: 0; page-break-after: always;
+                position: relative; min-height: 600px;
+            }
+            .report-page:last-child { page-break-after: auto; margin-bottom: 0; padding-bottom: 20px; }
+            .cover-domain { background: #3A2375 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px; }
+            .cover-indicator { background: #fafafa !important; border: 8px solid #3A2375 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px; }
+            .activity-report { page-break-inside: avoid; }
+            .pdf-pages-container canvas { page-break-after: always; page-break-inside: avoid; }
+            .pdf-pages-container canvas:last-child { page-break-after: auto; }
+            .media-image img { height: 140px; }
+            .principal-signature { position: absolute; bottom: 10px; left: 30px; font-size: 14px; }
+            .etec-table th { background-color: var(--etec-primary) !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .badge-level, .badge-status-approved, .badge-status-pending, .badge-status-rejected { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -297,12 +492,12 @@
                 <div class="login-card-body">
                     <form id="loginForm" onsubmit="handleLogin(event)">
                         <div class="form-group">
-                            <label>اسم المستخدم</label>
-                            <input type="text" id="username" class="form-control" required>
+                            <label><i class="fas fa-user" style="margin-left: 5px;"></i> اسم المستخدم</label>
+                            <input type="text" id="username" class="form-control" placeholder="أدخل اسم المستخدم" required>
                         </div>
                         <div class="form-group">
-                            <label>كلمة المرور</label>
-                            <input type="password" id="password" class="form-control" required>
+                            <label><i class="fas fa-lock" style="margin-left: 5px;"></i> كلمة المرور</label>
+                            <input type="password" id="password" class="form-control" placeholder="أدخل كلمة المرور" required>
                         </div>
                         <button type="submit" class="login-btn"><i class="fas fa-sign-in-alt"></i> تسجيل الدخول</button>
                     </form>
@@ -329,7 +524,7 @@
                 <div class="user-greeting">
                     <div class="user-avatar"><i class="fas fa-user"></i></div>
                     <div>
-                        <div class="user-greeting-text" id="headerUserName"></div>
+                        <div class="user-greeting-text" id="headerUserName">مرحباً، </div>
                         <div class="user-role-text" id="headerUserRole"></div>
                     </div>
                 </div>
@@ -355,90 +550,101 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const storage = firebase.storage();
-        
+
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // ============ البيانات الثابتة ============
         const domains = [
-            { id: 1, name: "مجال الإدارة المدرسية", standards: [
-                { id: "1-1", name: "معيار التخطيط", indicators: [
-                    { id: "1-1-1-1", name: "1-1-1-1 خطة المدرسة التشغيلية" },
-                    { id: "1-1-1-2", name: "1-1-1-2 متابعة تنفيذ خطة المدرسة التشغيلية" }
-                ]},
-                { id: "1-2", name: "معيار قيادة العملية التعليمية", indicators: [
-                    { id: "1-2-1-1", name: "1-2-1-1 تعزيز القيم الإسلامية والهوية الوطنية" },
-                    { id: "1-2-1-2", name: "1-2-1-2 تطبيق قيم وأخلاق مهنة التعليم" },
-                    { id: "1-2-1-3", name: "1-2-1-3 تطبيق إجراءات دعم الانضباط المدرسي" },
-                    { id: "1-2-1-4", name: "1-2-1-4 تنفيذ البرامج الداعمة للسلوك الإيجابي" },
-                    { id: "1-2-1-5", name: "1-2-1-5 تنفيذ البرامج الإثرائية لتطوير مواهب المتعلمين" }
-                ]},
-                { id: "1-3", name: "معيار المجتمع المدرسي", indicators: [
-                    { id: "1-3-1-1", name: "1-3-1-1 تعزيز بناء العلاقات الإيجابية" },
-                    { id: "1-3-1-2", name: "1-3-1-2 تعزيز مشاركة الأسرة" },
-                    { id: "1-3-1-3", name: "1-3-1-3 تعزيز الشراكة المجتمعية" }
-                ]},
-                { id: "1-4", name: "معيار التطوير المؤسسي", indicators: [
-                    { id: "1-4-1-4", name: "1-4-1-4 دعم الرخصة المهنية" },
-                    { id: "1-4-1-5", name: "1-4-1-5 دعم التطوير المهني" },
-                    { id: "1-4-1-6", name: "1-4-1-6 تطبيق التقويم الذاتي" },
-                    { id: "1-4-1-7", name: "1-4-1-7 تنفيذ خطة التحسين" }
-                ]},
-                { id: "1-5", name: "معيار حقوق المتعلم", indicators: [
-                    { id: "1-5-1-1", name: "1-5-1-1 المحافظة على حقوق المتعلمين" },
-                    { id: "1-5-1-2", name: "1-5-1-2 توفير المناخ الآمن" }
-                ]}
-            ]},
-            { id: 2, name: "مجال التعليم والتعلم", standards: [
-                { id: "2-1", name: "معيار بناء خبرات المتعلم", indicators: [
-                    { id: "2-1-1-1", name: "2-1-1-1 توفير الفرص المتكافئة" },
-                    { id: "2-1-1-2", name: "2-1-1-2 دعم تنفيذ المناهج" },
-                    { id: "2-1-1-3", name: "2-1-1-3 التنوع في استراتيجيات التعليم" },
-                    { id: "2-1-1-4", name: "2-1-1-4 تفعيل التقنية الرقمية" },
-                    { id: "2-1-1-5", name: "2-1-1-5 تنفيذ أنشطة تطبيقية" },
-                    { id: "2-1-1-6", name: "2-1-1-6 تنمية المهارات القرائية" },
-                    { id: "2-1-1-7", name: "2-1-1-7 تنمية مهارات التفكير" },
-                    { id: "2-1-1-8", name: "2-1-1-8 تنمية المهارات العاطفية" },
-                    { id: "2-1-1-9", name: "2-1-1-9 تعزيز دافعية المتعلمين" }
-                ]},
-                { id: "2-2", name: "معيار تقويم التعلم", indicators: [
-                    { id: "2-2-1-1", name: "2-2-1-1 تطبيق أساليب التقويم" },
-                    { id: "2-2-1-2", name: "2-2-1-2 تقويم نواتج التعلم" },
-                    { id: "2-2-1-3", name: "2-2-1-3 تحليل نتائج التقويم" },
-                    { id: "2-2-1-4", name: "2-2-1-4 تقديم التغذية الراجعة" }
-                ]}
-            ]},
-            { id: 3, name: "مجال نواتج التعلم", standards: [
-                { id: "3-1", name: "معيار التحصيل التعليمي", indicators: [
-                    { id: "3-1-1-1", name: "3-1-1-1 نتائج القراءة" },
-                    { id: "3-1-1-2", name: "3-1-1-2 نتائج الرياضيات" },
-                    { id: "3-1-1-3", name: "3-1-1-3 نتائج العلوم" },
-                    { id: "3-1-1-4", name: "3-1-1-4 تقدم القراءة" },
-                    { id: "3-1-1-5", name: "3-1-1-5 تقدم الرياضيات" },
-                    { id: "3-1-1-6", name: "3-1-1-6 تقدم العلوم" }
-                ]},
-                { id: "3-2", name: "معيار التطور الشخصي", indicators: [
-                    { id: "1-1-2-3", name: "1-1-2-3 اعتزاز المتعلمون بالقيم" },
-                    { id: "2-1-2-3", name: "2-1-2-3 اتجاهات إيجابية" },
-                    { id: "3-1-2-3", name: "3-1-2-3 الممارسات الصحية" },
-                    { id: "4-1-2-3", name: "4-1-2-3 الأنشطة المجتمعية" },
-                    { id: "5-1-2-3", name: "5-1-2-3 الانضباط المدرسي" },
-                    { id: "6-1-2-3", name: "6-1-2-3 التعلم الذاتي" },
-                    { id: "7-1-2-3", name: "7-1-2-3 احترام التنوع الثقافي" }
-                ]}
-            ]},
-            { id: 4, name: "مجال البيئة المدرسية", standards: [
-                { id: "4-1", name: "معيار المبنى المدرسي", indicators: [
-                    { id: "1-1-1-4", name: "1-1-1-4 مبنى مستوفي المواصفات" },
-                    { id: "2-1-1-4", name: "2-1-1-4 تنظيم المبنى" },
-                    { id: "3-1-1-4", name: "3-1-1-4 فصول ومعامل ملائمة" },
-                    { id: "4-1-1-4", name: "4-1-1-4 مرافق وتجهيزات" }
-                ]},
-                { id: "4-2", name: "معيار الأمن والسلامة", indicators: [
-                    { id: "1-1-2-4", name: "1-1-2-4 متطلبات الأمن والسلامة" },
-                    { id: "2-1-2-4", name: "2-1-2-4 صيانة المبنى" },
-                    { id: "3-1-2-4", name: "3-1-2-4 نظافة المبنى" }
-                ]}
-            ]}
+            {
+                id: 1, name: "مجال الإدارة المدرسية",
+                standards: [
+                    { id: "1-1", name: "معيار التخطيط", indicators: [
+                        { id: "1-1-1-1", name: "1-1-1-1 خطة المدرسة التشغيلية" },
+                        { id: "1-1-1-2", name: "1-1-1-2 متابعة تنفيذ خطة المدرسة التشغيلية" }
+                    ]},
+                    { id: "1-2", name: "معيار قيادة العملية التعليمية", indicators: [
+                        { id: "1-2-1-1", name: "1-2-1-1 تعزيز القيم الإسلامية والهوية الوطنية" },
+                        { id: "1-2-1-2", name: "1-2-1-2 تطبيق قيم وأخلاق مهنة التعليم" },
+                        { id: "1-2-1-3", name: "1-2-1-3 تطبيق إجراءات دعم الانضباط المدرسي" },
+                        { id: "1-2-1-4", name: "1-2-1-4 تنفيذ البرامج والأنشطة التربوية الداعمة للسلوك الإيجابي لجميع المتعلمين" },
+                        { id: "1-2-1-5", name: "1-2-1-5 تنفيذ البرامج والأنشطة الإثرائية لتطوير مواهب المتعلمين" }
+                    ]},
+                    { id: "1-3", name: "معيار المجتمع المدرسي", indicators: [
+                        { id: "1-3-1-1", name: "1-3-1-1 تعزيز بناء العلاقات الإيجابية والتعاون في المجتمع المدرسي" },
+                        { id: "1-3-1-2", name: "1-3-1-2 تعزيز مشاركة الأسرة في تعلم أبنائهم" },
+                        { id: "1-3-1-3", name: "1-3-1-3 تعزيز الشراكة المجتمعية لدعم التعلم والتأثير الإيجابي في المجتمع" }
+                    ]},
+                    { id: "1-4", name: "معيار التطوير المؤسسي", indicators: [
+                        { id: "1-4-1-4", name: "1-4-1-4 دعم حصول منسوبي المدرسة على الرخصة المهنية" },
+                        { id: "1-4-1-5", name: "1-4-1-5 دعم التطوير المهني لمنسوبي المدرسة وفق نتائج التقويم" },
+                        { id: "1-4-1-6", name: "1-4-1-6 تطبيق التقويم الذاتي المبني على معايير الهيئة" },
+                        { id: "1-4-1-7", name: "1-4-1-7 تنفيذ خطة التحسين المبنية على نتائج التقويم المدرسي" }
+                    ]},
+                    { id: "1-5", name: "معيار حقوق المتعلم وحمايته", indicators: [
+                        { id: "1-5-1-1", name: "1-5-1-1 الالتزام بالمحافظة على حقوق المتعلمين وحمايتهم" },
+                        { id: "1-5-1-2", name: "1-5-1-2 توفير المناخ الآمن للتعلم والنمو النفسي والاجتماعي" }
+                    ]}
+                ]
+            },
+            {
+                id: 2, name: "مجال التعليم والتعلم",
+                standards: [
+                    { id: "2-1", name: "معيار بناء خبرات المتعلم", indicators: [
+                        { id: "2-1-1-1", name: "2-1-1-1 توفير الفرص المتكافئة للتعلم تلبي جميع احتياجات المتعلمين" },
+                        { id: "2-1-1-2", name: "2-1-1-2 دعم تنفيذ المناهج بما يحقق نواتج التعلم" },
+                        { id: "2-1-1-3", name: "2-1-1-3 التنوع في إستراتيجيات التعليم والتعلم لتلبية احتياجات المتعلمين" },
+                        { id: "2-1-1-4", name: "2-1-1-4 تفعيل التقنية الرقمية لدعم تعلم المتعلمين" },
+                        { id: "2-1-1-5", name: "2-1-1-5 تنفيذ أنشطة تعلم تطبيقية مرتبطة بحياة المتعلمين" },
+                        { id: "2-1-1-6", name: "2-1-1-6 تنمية المهارات القرائية والعددية الأساسية للمتعلمين" },
+                        { id: "2-1-1-7", name: "2-1-1-7 تنمية مهارات التفكير والبحث والابتكار للمتعلمين" },
+                        { id: "2-1-1-8", name: "2-1-1-8 تنمية المهارات العاطفية والاجتماعية للمتعلمين" },
+                        { id: "2-1-1-9", name: "2-1-1-9 تعزيز دافعية المتعلمين للتعلم" }
+                    ]},
+                    { id: "2-2", name: "معيار تقويم التعلم", indicators: [
+                        { id: "2-2-1-1", name: "2-2-1-1 تطبيق أساليب وأدوات التقويم للكشف عن مستويات أداء المتعلمين" },
+                        { id: "2-2-1-2", name: "2-2-1-2 تطبيق أساليب وأدوات التقويم لنواتج التعلم في مناهج التعليم" },
+                        { id: "2-2-1-3", name: "2-2-1-3 تحليل نتائج التقويم وتوظيفها في تحسين عمليات التعليم والتعلم والتقويم" },
+                        { id: "2-2-1-4", name: "2-2-1-4 تقديم التغذية الراجعة للمتعلمين وأولياء أمورهم" }
+                    ]}
+                ]
+            },
+            {
+                id: 3, name: "مجال نواتج التعلم",
+                standards: [
+                    { id: "3-1", name: "معيار التحصيل التعليمي", indicators: [
+                        { id: "3-1-1-1", name: "3-1-1-1 تحقيق المتعلمون نتائج مرتفعة في مجال القراءة وفق الاختبارات الوطنية" },
+                        { id: "3-1-1-2", name: "3-1-1-2 تحقيق المتعلمون نتائج مرتفعة في مجال الرياضيات وفق الاختبارات الوطنية" },
+                        { id: "3-1-1-3", name: "3-1-1-3 تحقيق المتعلمون نتائج مرتفعة في مجال العلوم وفق الاختبارات الوطنية" },
+                        { id: "3-1-1-4", name: "3-1-1-4 تحقيق المتعلمون تقدم في مجال القراءة مقارنة بالأداء السابق وفق الاختبارات الوطنية" },
+                        { id: "3-1-1-5", name: "3-1-1-5 تحقيق المتعلمون تقدم في مجال الرياضيات مقارنة بالأداء السابق وفق الاختبارات الوطنية" },
+                        { id: "3-1-1-6", name: "3-1-1-6 تحقيق المتعلمون تقدم في مجال العلوم مقارنة بالأداء السابق وفق الاختبارات الوطنية" }
+                    ]},
+                    { id: "3-2", name: "معيار التطور الشخصي والصحي والاجتماعي", indicators: [
+                        { id: "1-1-2-3", name: "1-1-2-3 اعتزاز المتعلمون بالقيم والهوية الوطنية" },
+                        { id: "2-1-2-3", name: "2-1-2-3 إظهار المتعلمين اتجاهات إيجابية نحو ذواتهم والآخرين" },
+                        { id: "3-1-2-3", name: "3-1-2-3 التزام المتعلمون بالممارسات الصحية السليمة" },
+                        { id: "4-1-2-3", name: "4-1-2-3 مشاركة المتعلمون في الأنشطة المجتمعية والأعمال التطوعية" },
+                        { id: "5-1-2-3", name: "5-1-2-3 التزام المتعلمين بقواعد السلوك والانضباط المدرسي" },
+                        { id: "6-1-2-3", name: "6-1-2-3 إظهار المتعلمون الاستقلالية والقدرة على التعلم الذاتي" },
+                        { id: "7-1-2-3", name: "7-1-2-3 اعتزاز المتعلمين بثقافتهم واحترامهم للتنوع الثقافي في المجتمع" }
+                    ]}
+                ]
+            },
+            {
+                id: 4, name: "مجال البيئة المدرسية",
+                standards: [
+                    { id: "4-1", name: "معيار المبنى المدرسي", indicators: [
+                        { id: "1-1-1-4", name: "1-1-1-4 توفير مبنى تعليمي مستوفي المواصفات والاشتراطات المعتمدة من حيث النوع والخدمات المساندة" },
+                        { id: "2-1-1-4", name: "2-1-1-4 تنظيم مبنى ملائم لعدد المتعلمين وخصائصهم" },
+                        { id: "3-1-1-4", name: "3-1-1-4 توفر فصول ومعامل ملائمة للعملية التعليمية تلبي احتياجات المتعلمين" },
+                        { id: "4-1-1-4", name: "4-1-1-4 تلبية المرافق والتجهيزات والخدمات المساندة لاحتياجات جميع المتعلمين" }
+                    ]},
+                    { id: "4-2", name: "معيار الأمن والسلامة", indicators: [
+                        { id: "1-1-2-4", name: "1-1-2-4 توفر جميع متطلبات الأمن والسلامة في مبنى المدرسة ومرافقها" },
+                        { id: "2-1-2-4", name: "2-1-2-4 متابعة صيانة المبنى وجميع مرافقه وتجهيزاته" },
+                        { id: "3-1-2-4", name: "3-1-2-4 متابعة نظافة المبنى وجميع مرافقه" }
+                    ]}
+                ]
+            }
         ];
 
         const users = [
@@ -452,7 +658,7 @@
         let currentUser = null;
 
         // ============ دوال Firebase ============
-        async function loadEvidences() {
+        async function loadEvidencesFromDb() {
             try {
                 const snapshot = await db.collection('evidences').orderBy('date', 'desc').get();
                 evidences = [];
@@ -520,7 +726,7 @@
             }
         }
 
-        // ============ النوافذ المنبثقة ============
+        // ============ نظام النوافذ المنبثقة ============
         function showCustomModal({ type = 'info', title = '', message = '', icon = 'fa-info-circle', confirmText = 'موافق', cancelText = 'إلغاء', showCancel = false, onConfirm = null, onCancel = null, input = null, textarea = null }) {
             const iconMap = { 'success': 'fa-check-circle', 'danger': 'fa-exclamation-triangle', 'warning': 'fa-exclamation-circle', 'info': 'fa-info-circle', 'primary': 'fa-bell' };
             const finalIcon = icon || iconMap[type] || 'fa-info-circle';
@@ -540,7 +746,7 @@
                         </div>
                         <div class="modal-body">${bodyContent}</div>
                         <div class="modal-footer">
-                            <button class="modal-btn modal-btn-primary" onclick="confirmCustomModal()"><i class="fas fa-check"></i> ${confirmText}</button>
+                            <button class="modal-btn modal-btn-primary" onclick="confirmCustomModal()"><i class="fas ${type === 'danger' ? 'fa-trash' : 'fa-check'}"></i> ${confirmText}</button>
                             ${showCancel ? `<button class="modal-btn modal-btn-secondary" onclick="cancelCustomModal()"><i class="fas fa-times"></i> ${cancelText}</button>` : ''}
                         </div>
                     </div>
@@ -550,6 +756,9 @@
             window._modalCallbacks = { onConfirm, onCancel };
             document.getElementById('customModal').addEventListener('click', function(e) {
                 if (e.target === this) { closeCustomModal(); if (window._modalCallbacks.onCancel) window._modalCallbacks.onCancel(); }
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') { closeCustomModal(); if (window._modalCallbacks.onCancel) window._modalCallbacks.onCancel(); }
             });
             if (input) setTimeout(() => { const f = document.getElementById('modalInputField'); if (f) f.focus(); }, 100);
             if (textarea) setTimeout(() => { const f = document.getElementById('modalTextareaField'); if (f) f.focus(); }, 100);
@@ -574,6 +783,61 @@
         function showConfirmModal(title, message, onConfirm, onCancel = null) { showCustomModal({ type: 'warning', title, message, icon: 'fa-exclamation-circle', confirmText: 'تأكيد', cancelText: 'إلغاء', showCancel: true, onConfirm, onCancel }); }
         function showInputModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'primary', title, message, icon: 'fa-edit', confirmText: 'حفظ', cancelText: 'إلغاء', showCancel: true, input: { placeholder, value }, onConfirm, onCancel }); }
         function showTextareaModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'danger', title, message, icon: 'fa-comment-alt', confirmText: 'تأكيد الرفض', cancelText: 'إلغاء', showCancel: true, textarea: { placeholder, value }, onConfirm, onCancel }); }
+
+        function showAddUserModal() {
+            const modalHtml = `
+                <div class="modal-overlay" id="addUserModal">
+                    <div class="modal-content" style="max-width: 550px;">
+                        <div class="modal-header primary">
+                            <div class="modal-icon"><i class="fas fa-user-plus"></i></div>
+                            <div class="modal-title">إضافة مستخدم جديد</div>
+                            <button class="modal-close-btn" onclick="closeAddUserModal()"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="modal-form-group"><label>اسم العضو</label><input type="text" id="addUserName" class="modal-input" placeholder="أدخل اسم العضو" required></div>
+                            <div class="modal-form-group"><label>اسم المستخدم</label><input type="text" id="addUsername" class="modal-input" placeholder="أدخل اسم المستخدم" required></div>
+                            <div class="modal-form-group"><label>كلمة المرور</label><input type="password" id="addUserPassword" class="modal-input" placeholder="أدخل كلمة المرور" required></div>
+                            <div class="modal-form-group">
+                                <label>الصلاحية</label>
+                                <select id="addUserRole" class="modal-select" required>
+                                    <option value="">اختر الصلاحية</option>
+                                    <option value="leader">مدير المدرسة</option>
+                                    <option value="internal_committee">عضو فريق التقويم الداخلي</option>
+                                    <option value="member">عضو</option>
+                                    <option value="external_committee">عضو فريق التقييم الخارجي</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="modal-btn modal-btn-success" onclick="confirmAddUser()"><i class="fas fa-plus"></i> إضافة</button>
+                            <button class="modal-btn modal-btn-secondary" onclick="closeAddUserModal()"><i class="fas fa-times"></i> إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            document.getElementById('addUserModal').addEventListener('click', function(e) { if (e.target === this) closeAddUserModal(); });
+            document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeAddUserModal(); });
+            setTimeout(() => { const f = document.getElementById('addUserName'); if (f) f.focus(); }, 100);
+        }
+        
+        function closeAddUserModal() { const m = document.getElementById('addUserModal'); if (m) m.remove(); }
+        
+        function confirmAddUser() {
+            const name = document.getElementById('addUserName').value.trim();
+            const username = document.getElementById('addUsername').value.trim();
+            const password = document.getElementById('addUserPassword').value.trim();
+            const role = document.getElementById('addUserRole').value;
+            if (!name) { showErrorModal('خطأ', 'الرجاء إدخال اسم العضو'); return; }
+            if (!username) { showErrorModal('خطأ', 'الرجاء إدخال اسم المستخدم'); return; }
+            if (!password) { showErrorModal('خطأ', 'الرجاء إدخال كلمة المرور'); return; }
+            if (!role) { showErrorModal('خطأ', 'الرجاء اختيار الصلاحية'); return; }
+            if (users.find(u => u.username === username)) { showErrorModal('خطأ', 'اسم المستخدم موجود بالفعل'); return; }
+            const roleLabels = { 'leader': 'مدير المدرسة', 'internal_committee': 'عضو فريق التقويم الداخلي', 'member': 'عضو', 'external_committee': 'عضو فريق التقييم الخارجي' };
+            users.push({ id: users.length + 1, name, username, password, role, roleLabel: roleLabels[role] });
+            closeAddUserModal();
+            showSuccessModal('تمت الإضافة', `تم إضافة المستخدم "${name}" بنجاح`, () => showUserManagement());
+        }
 
         // ============ نظام الاعتماد ============
         function getRequiredApprovers(evidence) {
@@ -613,31 +877,36 @@
             const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
             if (!canUserApprove(evidence)) { showErrorModal('خطأ', 'لا يمكنك رفض هذا الشاهد'); return; }
-            showTextareaModal('سبب رفض الشاهد', `الشاهد: ${evidence.title}`, 'اكتب سبب الرفض هنا...', '', async (inputValue, textareaValue) => {
-                if (!textareaValue || !textareaValue.trim()) { showErrorModal('خطأ', 'الرجاء كتابة سبب الرفض'); return; }
-                if (!evidence.approvals) evidence.approvals = [];
-                evidence.approvals = evidence.approvals.filter(a => a.userId !== currentUser.id);
-                evidence.approvals.push({ userId: currentUser.id, userName: currentUser.name, role: currentUser.roleLabel, status: 'rejected', reason: textareaValue.trim(), date: new Date().toISOString() });
-                updateEvidenceStatus(evidence);
-                await updateEvidenceInDb(evidence);
-                showSuccessModal('تم الرفض', 'تم رفض الشاهد بنجاح', () => showEvidenceApproval());
-            });
+            showRejectModal(evidence);
+        }
+        
+        function showRejectModal(evidence) {
+            showTextareaModal('سبب رفض الشاهد', `الشاهد: ${evidence.title}`, 'اكتب سبب الرفض هنا...', '', (inputValue, textareaValue) => confirmReject(evidence.id, textareaValue), () => {});
+        }
+        
+        async function confirmReject(evidenceId, reason) {
+            if (!reason || !reason.trim()) { showErrorModal('خطأ', 'الرجاء كتابة سبب الرفض'); return; }
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) return;
+            if (!evidence.approvals) evidence.approvals = [];
+            evidence.approvals = evidence.approvals.filter(a => a.userId !== currentUser.id);
+            evidence.approvals.push({ userId: currentUser.id, userName: currentUser.name, role: currentUser.roleLabel, status: 'rejected', reason: reason.trim(), date: new Date().toISOString() });
+            updateEvidenceStatus(evidence);
+            await updateEvidenceInDb(evidence);
+            showSuccessModal('تم الرفض', 'تم رفض الشاهد بنجاح', () => showEvidenceApproval());
         }
 
         // ============ تسجيل الدخول ============
         async function handleLogin(event) {
             event.preventDefault();
-            const username = document.getElementById('username').value.trim();
+            const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const user = users.find(u => u.username === username && u.password === password);
-            if (user) {
-                currentUser = user;
-                showSuccessModal('تم تسجيل الدخول', `مرحباً ${user.name}`, async () => {
-                    await showMainApp();
-                });
-            } else {
-                showErrorModal('خطأ في تسجيل الدخول', 'بيانات الدخول غير صحيحة');
+            if (user) { 
+                currentUser = user; 
+                await showMainApp(); 
             }
+            else showErrorModal('خطأ في تسجيل الدخول', 'بيانات الدخول غير صحيحة');
         }
         
         async function showMainApp() {
@@ -646,7 +915,8 @@
             document.getElementById('userTypeLabelSidebar').textContent = currentUser.roleLabel;
             document.getElementById('headerUserName').textContent = `مرحباً، ${currentUser.name}`;
             document.getElementById('headerUserRole').textContent = currentUser.roleLabel;
-            await loadEvidences();
+            
+            await loadEvidencesFromDb();
             buildSidebar();
             showDashboard();
         }
@@ -666,7 +936,8 @@
                 case 'leader': menuItems = [
                     { icon: 'fa-users', label: 'إدارة المستخدمين', action: 'showUserManagement' },
                     { icon: 'fa-file-upload', label: 'الشواهد', action: 'showEvidenceManagement' },
-                    { icon: 'fa-chart-bar', label: 'التقارير والإحصائيات', action: 'showReports' }
+                    { icon: 'fa-chart-bar', label: 'التقارير والإحصائيات', action: 'showReports' },
+                    { icon: 'fa-database', label: 'النسخ الاحتياطي', action: 'showBackup' }
                 ]; break;
                 case 'internal_committee': case 'member': menuItems = [
                     { icon: 'fa-file-upload', label: 'الشواهد', action: 'showEvidenceManagement' },
@@ -701,38 +972,82 @@
                     <div class="etec-card-header"><div class="etec-card-title">لوحة المؤشرات العامة</div></div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
                         <div class="etec-card" style="text-align: center;"><h3 style="color: var(--etec-primary); font-size: 32px;">${evidences.length}</h3><p>إجمالي الشواهد</p></div>
-                        <div class="etec-card" style="text-align: center;"><h3 style="color: #27AE60; font-size: 32px;">${approvedCount}</h3><p>شواهد معتمدة</p></div>
-                        <div class="etec-card" style="text-align: center;"><h3 style="color: #E77B26; font-size: 32px;">${pendingCount}</h3><p>قيد الاعتماد</p></div>
-                        <div class="etec-card" style="text-align: center;"><h3 style="color: #C82269; font-size: 32px;">${rejectedCount}</h3><p>مرفوضة</p></div>
+                        <div class="etec-card" style="text-align: center;"><h3 style="color: var(--level-progress); font-size: 32px;">${approvedCount}</h3><p>شواهد معتمدة</p></div>
+                        <div class="etec-card" style="text-align: center;"><h3 style="color: var(--level-launch); font-size: 32px;">${pendingCount}</h3><p>قيد الاعتماد</p></div>
+                        <div class="etec-card" style="text-align: center;"><h3 style="color: var(--level-readiness); font-size: 32px;">${rejectedCount}</h3><p>مرفوضة</p></div>
                     </div>
                 </div>
             `;
         }
-
+        
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
             const contentArea = document.getElementById('contentArea');
             contentArea.innerHTML = `
                 <div class="content-header"><h1>إدارة المستخدمين</h1></div>
                 <div class="etec-card">
-                    <div class="etec-card-header"><div class="etec-card-title">قائمة المستخدمين</div></div>
+                    <div class="etec-card-header">
+                        <div class="etec-card-title">قائمة المستخدمين</div>
+                        <button class="btn-etec-primary" onclick="showAddUserModal()"><i class="fas fa-plus"></i> إضافة مستخدم</button>
+                    </div>
                     <table class="etec-table">
-                        <thead><tr><th>اسم العضو</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>الصلاحية</th></tr></thead>
+                        <thead><tr><th>اسم العضو</th><th>اسم المستخدم</th><th>كلمة المرور</th><th>الصلاحية</th><th>الإجراءات</th></tr></thead>
                         <tbody>
-                            ${users.map(user => `<tr><td>${user.name}</td><td>${user.username}</td><td>${user.password}</td><td>${user.roleLabel}</td></tr>`).join('')}
+                            ${users.map(user => `<tr>
+                                <td>${user.name}</td><td>${user.username}</td><td>${user.password}</td><td>${user.roleLabel}</td>
+                                <td>
+                                    <button class="btn-etec-secondary btn-sm" onclick="editUser(${user.id})"><i class="fas fa-edit"></i></button>
+                                    <button class="btn-etec-primary btn-sm" onclick="deleteUser(${user.id})" style="background-color: #E74C3C;"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>`).join('')}
                         </tbody>
                     </table>
                 </div>
             `;
         }
+        
+        function editUser(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            showInputModal('تعديل اسم العضو', 'أدخل الاسم الجديد:', 'اسم العضو', user.name, (newName) => {
+                if (newName && newName.trim()) {
+                    user.name = newName.trim();
+                    showInputModal('تعديل اسم المستخدم', 'أدخل اسم المستخدم الجديد:', 'اسم المستخدم', user.username, (newUsername) => {
+                        if (newUsername && newUsername.trim()) {
+                            user.username = newUsername.trim();
+                            showInputModal('تعديل كلمة المرور', 'أدخل كلمة المرور الجديدة:', 'كلمة المرور', user.password, (newPassword) => {
+                                if (newPassword && newPassword.trim()) {
+                                    user.password = newPassword.trim();
+                                    showSuccessModal('تم التعديل', 'تم تعديل بيانات المستخدم بنجاح', () => showUserManagement());
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        
+        function deleteUser(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            if (user.role === 'leader') {
+                const leadersCount = users.filter(u => u.role === 'leader').length;
+                if (leadersCount <= 1) { showErrorModal('لا يمكن الحذف', 'لا يمكن حذف آخر مدير مدرسة'); return; }
+            }
+            showConfirmModal('تأكيد الحذف', `هل أنت متأكد من حذف المستخدم "${user.name}"؟`, () => {
+                const idx = users.findIndex(u => u.id === id);
+                if (idx > -1) { users.splice(idx, 1); showSuccessModal('تم الحذف', 'تم حذف المستخدم بنجاح', () => showUserManagement()); }
+            });
+        }
 
+        // ============ إدارة الشواهد ============
         function showEvidenceManagement() {
             const contentArea = document.getElementById('contentArea');
             let buttonsHtml = `
                 <div class="content-header"><h1>إدارة الشواهد والأدلة</h1></div>
                 <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="btn-etec-primary" onclick="showAddEvidenceForm()"><i class="fas fa-plus"></i> إضافة شاهد جديد</button>
-                    <button class="btn-etec-secondary" onclick="showPreviousEvidences()"><i class="fas fa-list"></i> استعراض الشواهد</button>
+                    <button class="btn-etec-secondary" onclick="showPreviousEvidences()"><i class="fas fa-list"></i> استعراض الشواهد المسجلة</button>
             `;
             if (currentUser.role === 'leader' || currentUser.role === 'internal_committee') {
                 buttonsHtml += `<button class="btn-etec-warning" onclick="showEvidenceApproval()"><i class="fas fa-check-circle"></i> اعتماد الشواهد</button>`;
@@ -741,7 +1056,7 @@
             contentArea.innerHTML = buttonsHtml;
             showPreviousEvidences();
         }
-
+        
         function showAddEvidenceForm() {
             const availableUsers = users.filter(u => u.role !== 'external_committee');
             document.getElementById('evidenceContent').innerHTML = `
@@ -761,20 +1076,21 @@
                         <div class="form-group"><label>وصف النشاط وأهدافه</label><textarea id="evDesc" class="form-control" rows="3" required></textarea></div>
                         <div class="form-group"><label>المستفيدون</label><input type="text" id="evBeneficiaries" class="form-control" required></div>
                         <div class="form-group">
-                            <label>المنفذون</label>
+                            <label>المنفذون (يمكن اختيار أكثر من منفذ)</label>
                             <select id="evImplementers" class="form-control" multiple style="height: auto; min-height: 100px;">
                                 ${availableUsers.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${u.name} - ${u.roleLabel}</option>`).join('')}
                             </select>
+                            <small style="color: var(--text-muted); display: block; margin-top: 5px;"><i class="fas fa-info-circle"></i> يمكنك اختيار عدة منفذين بالضغط على Ctrl + النقر. صاحب الحساب محدد تلقائياً.</small>
                         </div>
                         <div class="form-group"><label>اليوم والتاريخ</label><input type="date" id="evDate" class="form-control" required></div>
-                        <div class="form-group"><label>الصور (حتى 4 صور)</label><input type="file" id="evImages" class="form-control" accept="image/*" multiple></div>
-                        <div class="form-group"><label>ملف PDF</label><input type="file" id="evPdf" class="form-control" accept=".pdf"></div>
+                        <div class="form-group"><label>التوثيق الإعلامي / الصور (اختر حتى 4 صور)</label><input type="file" id="evImages" class="form-control" accept="image/*" multiple></div>
+                        <div class="form-group"><label>إرفاق ملف PDF (اختياري)</label><input type="file" id="evPdf" class="form-control" accept=".pdf"></div>
                         <button type="submit" class="btn-etec-primary">حفظ الشاهد</button>
                     </form>
                 </div>
             `;
         }
-
+        
         function updateStandards() {
             const dId = parseInt(document.getElementById('domainSelect').value);
             const d = domains.find(x => x.id === dId);
@@ -782,7 +1098,7 @@
             stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}">${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
             updateIndicators();
         }
-
+        
         function updateIndicators() {
             const dId = parseInt(document.getElementById('domainSelect').value);
             const sId = document.getElementById('standardSelect').value;
@@ -791,24 +1107,26 @@
             const indSelect = document.getElementById('indicatorSelect');
             indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}">${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
         }
-
+        
         async function submitEvidence(e) {
             e.preventDefault();
             const evidenceId = Date.now().toString();
+            
             const images = [];
             const filesInput = document.getElementById('evImages').files;
             for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
                 const url = await uploadImageToStorage(filesInput[i], evidenceId);
                 if (url) images.push(url);
             }
+            
             const pdfInput = document.getElementById('evPdf').files[0];
             let pdfUrl = null;
             if (pdfInput) pdfUrl = await uploadPdfToStorage(pdfInput, evidenceId);
             
             const implementersSelect = document.getElementById('evImplementers');
-            const selectedIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
-            if (!selectedIds.includes(currentUser.id)) selectedIds.push(currentUser.id);
-            const implementers = selectedIds.map(id => { const u = users.find(x => x.id === id); return { userId: u.id, userName: u.name, userRole: u.roleLabel }; });
+            const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
+            if (!selectedImplementerIds.includes(currentUser.id)) selectedImplementerIds.push(currentUser.id);
+            const implementers = selectedImplementerIds.map(id => { const user = users.find(u => u.id === id); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
             
             const newEvidence = {
                 id: evidenceId,
@@ -832,43 +1150,48 @@
             const saved = await saveEvidenceToDb(newEvidence);
             if (saved) {
                 evidences.push(newEvidence);
-                showSuccessModal('تم الحفظ', 'تم حفظ الشاهد بنجاح', () => showPreviousEvidences());
+                if (currentUser.role === 'leader') showSuccessModal('تم الحفظ', 'تم حفظ الشاهد واعتماده تلقائياً', () => showPreviousEvidences());
+                else showSuccessModal('تم الحفظ', 'تم حفظ الشاهد. سيكون متاحاً في التقارير بعد اعتماده', () => showPreviousEvidences());
             } else {
                 showErrorModal('خطأ', 'فشل في حفظ الشاهد');
             }
         }
-
+        
         function showPreviousEvidences() {
             const container = document.getElementById('evidenceContent');
-            if (!container) return;
-            if (evidences.length === 0) {
-                container.innerHTML = `<div class="etec-card" style="text-align: center; color: var(--text-muted);"><p>لا توجد شواهد مسجلة.</p></div>`;
-                return;
-            }
+            if(!container) return;
+            if(evidences.length === 0) { container.innerHTML = `<div class="etec-card" style="text-align: center; color: var(--text-muted);"><p>لا توجد شواهد مسجلة حتى الآن.</p></div>`; return; }
+            
             const userEvidences = currentUser.role === 'leader' ? evidences : evidences.filter(e => {
                 if (e.userId === currentUser.id) return true;
                 if (e.implementers && e.implementers.some(imp => imp.userId === currentUser.id)) return true;
                 return false;
             });
+            
             const printableEvidences = userEvidences.filter(e => e.status === 'approved' || e.status === 'pending');
+            if (userEvidences.length === 0) { container.innerHTML = `<div class="etec-card" style="text-align: center; color: var(--text-muted);"><p>لا توجد شواهد مسجلة من قبلك.</p></div>`; return; }
+            
             const canPrint = currentUser.role !== 'external_committee';
             
             container.innerHTML = `
                 <div class="etec-card">
                     <div class="etec-card-header">
                         <div class="etec-card-title">قائمة الشواهد</div>
-                        ${canPrint && printableEvidences.length > 0 ? `<button class="btn-etec-success" onclick="printSelectedEvidences()"><i class="fas fa-print"></i> طباعة المحدد (0)</button>` : ''}
+                        <div style="display: flex; gap: 10px;">
+                            ${canPrint && printableEvidences.length > 0 ? `<button class="btn-etec-success" onclick="printSelectedEvidences()"><i class="fas fa-print"></i> طباعة المحدد (0)</button>` : ''}
+                        </div>
                     </div>
                     ${canPrint && printableEvidences.length > 0 ? `
-                        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
                             <button class="btn-etec-secondary btn-sm" onclick="selectAllPrintableEvidences()"><i class="fas fa-check-square"></i> تحديد الكل</button>
                             <button class="btn-etec-secondary btn-sm" onclick="deselectAllPrintableEvidences()"><i class="fas fa-square"></i> إلغاء التحديد</button>
+                            <span style="color: var(--text-muted); font-size: 13px;"><i class="fas fa-info-circle"></i> يمكنك تحديد الشواهد المراد طباعتها (المعتمدة وقيد الانتظار فقط)</span>
                         </div>
                     ` : ''}
                     <table class="etec-table">
                         <thead>
                             <tr>
-                                ${canPrint ? '<th style="width: 40px; text-align: center;"><input type="checkbox" id="printAllCheckbox" class="print-checkbox" onchange="toggleAllPrintCheckboxes()"></th>' : ''}
+                                ${canPrint && printableEvidences.length > 0 ? '<th style="width: 40px; text-align: center;"><input type="checkbox" id="printAllCheckbox" class="print-checkbox" onchange="toggleAllPrintCheckboxes()"></th>' : ''}
                                 <th>عنوان النشاط</th><th>التاريخ</th><th>المنفذون</th><th>الحالة</th><th>الإجراءات</th>
                             </tr>
                         </thead>
@@ -882,14 +1205,74 @@
                                 const canEdit = e.userId === currentUser.id || (e.implementers && e.implementers.some(imp => imp.userId === currentUser.id));
                                 const canDelete = e.userId === currentUser.id;
                                 return `<tr>
-                                    ${canPrint ? `<td style="text-align: center;">${isPrintable ? `<input type="checkbox" class="print-evidence-checkbox print-checkbox" data-evidence-id="${e.id}" onchange="updatePrintButton()">` : '<span>✗</span>'}</td>` : ''}
+                                    ${canPrint && printableEvidences.length > 0 ? `<td style="text-align: center;">${isPrintable ? `<input type="checkbox" class="print-evidence-checkbox print-checkbox" data-evidence-id="${e.id}" onchange="updatePrintButton()">` : '<span style="color: #ccc;">✗</span>'}</td>` : ''}
                                     <td>${e.title}</td><td>${e.date}</td><td>${implementersNames}</td>
                                     <td><span class="${statusBadge}">${statusLabel}</span></td>
                                     <td>
                                         <button class="btn-etec-secondary btn-sm" onclick="viewEvidence('${e.id}')"><i class="fas fa-eye"></i></button>
                                         ${canEdit ? `<button class="btn-etec-secondary btn-sm" onclick="editEvidence('${e.id}')" style="background-color: #27AE60;"><i class="fas fa-edit"></i></button>` : ''}
                                         ${canDelete ? `<button class="btn-etec-primary btn-sm" onclick="deleteEvidence('${e.id}')" style="background-color: #E74C3C;"><i class="fas fa-trash"></i></button>` : ''}
-                                        ${canPrint && isPrintable ? `<button class="btn-etec-warning btn-sm" onclick="printSingleEvidence('${e.id}')"><i class="fas fa-print"></i></button>` : ''}
+                                        ${canPrint && isPrintable ? `<button class="btn-etec-warning btn-sm" onclick="printSingleEvidence('${e.id}')" title="طباعة هذا الشاهد"><i class="fas fa-print"></i></button>` : ''}
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                    ${userEvidences.filter(e => e.status === 'rejected').map(e => {
+                        const rejections = e.approvals ? e.approvals.filter(a => a.status === 'rejected') : [];
+                        if (rejections.length === 0) return '';
+                        return `<div class="rejection-box"><h4><i class="fas fa-exclamation-triangle"></i> أسباب رفض الشاهد: "${e.title}"</h4>${rejections.map(r => `<div class="rejection-item"><strong>${r.userName} (${r.role})</strong>: ${r.reason}</div>`).join('')}</div>`;
+                    }).join('')}
+                </div>
+            `;
+        }
+        
+        function selectAllPrintableEvidences() { document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = true); updatePrintButton(); updateMasterCheckbox(); }
+        function deselectAllPrintableEvidences() { document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = false); updatePrintButton(); updateMasterCheckbox(); }
+        function toggleAllPrintCheckboxes() { const master = document.getElementById('printAllCheckbox'); document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = master.checked); updatePrintButton(); }
+        function updatePrintButton() {
+            const selectedCount = document.querySelectorAll('.print-evidence-checkbox:checked').length;
+            document.querySelectorAll('[onclick="printSelectedEvidences()"]').forEach(btn => {
+                if (selectedCount === 0) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+                else { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+                btn.innerHTML = `<i class="fas fa-print"></i> طباعة المحدد (${selectedCount})`;
+            });
+        }
+        function updateMasterCheckbox() {
+            const master = document.getElementById('printAllCheckbox');
+            if (!master) return;
+            const checkboxes = document.querySelectorAll('.print-evidence-checkbox');
+            const checkedCount = document.querySelectorAll('.print-evidence-checkbox:checked').length;
+            if (checkedCount === 0) { master.checked = false; master.indeterminate = false; }
+            else if (checkedCount === checkboxes.length) { master.checked = true; master.indeterminate = false; }
+            else { master.checked = false; master.indeterminate = true; }
+        }
+        
+        function showEvidenceApproval() {
+            if (currentUser.role !== 'leader' && currentUser.role !== 'internal_committee') return;
+            const container = document.getElementById('evidenceContent');
+            if(!container) return;
+            const pendingEvidences = evidences.filter(e => { if (e.userId === currentUser.id) return false; if (e.status === 'approved') return false; return true; });
+            if (pendingEvidences.length === 0) { container.innerHTML = `<div class="etec-card" style="text-align: center; color: var(--text-muted);"><p>لا توجد شواهد بانتظار الاعتماد.</p></div>`; return; }
+            container.innerHTML = `
+                <div class="etec-card">
+                    <div class="etec-card-header"><div class="etec-card-title">اعتماد الشواهد المرفوعة</div></div>
+                    <table class="etec-table">
+                        <thead><tr><th>عنوان الشاهد</th><th>مقدم من</th><th>حالتي</th><th>الإجراءات</th></tr></thead>
+                        <tbody>
+                            ${pendingEvidences.map(e => {
+                                const myApproval = getUserApprovalStatus(e, currentUser.id);
+                                let myStatusBadge = '', myStatusLabel = '';
+                                if (myApproval === 'approved') { myStatusBadge = 'badge-status-approved'; myStatusLabel = 'وافقت'; }
+                                else if (myApproval === 'rejected') { myStatusBadge = 'badge-status-rejected'; myStatusLabel = 'رفضت'; }
+                                else { myStatusBadge = 'badge-status-waiting'; myStatusLabel = 'بانتظار قراري'; }
+                                return `<tr>
+                                    <td>${e.title}</td><td>${e.userName}</td>
+                                    <td><span class="${myStatusBadge}">${myStatusLabel}</span></td>
+                                    <td>
+                                        <button class="btn-etec-secondary btn-sm" onclick="viewEvidence('${e.id}')"><i class="fas fa-eye"></i></button>
+                                        <button class="btn-etec-success btn-sm" onclick="approveEvidence('${e.id}')"><i class="fas fa-check"></i> اعتماد</button>
+                                        <button class="btn-etec-danger btn-sm" onclick="rejectEvidence('${e.id}')"><i class="fas fa-times"></i> رفض</button>
                                     </td>
                                 </tr>`;
                             }).join('')}
@@ -898,62 +1281,28 @@
                 </div>
             `;
         }
-
-        function selectAllPrintableEvidences() { document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = true); updatePrintButton(); }
-        function deselectAllPrintableEvidences() { document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = false); updatePrintButton(); }
-        function toggleAllPrintCheckboxes() { const master = document.getElementById('printAllCheckbox'); document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = master.checked); updatePrintButton(); }
-        function updatePrintButton() {
-            const selectedCount = document.querySelectorAll('.print-evidence-checkbox:checked').length;
-            document.querySelectorAll('[onclick="printSelectedEvidences()"]').forEach(btn => {
-                btn.innerHTML = `<i class="fas fa-print"></i> طباعة المحدد (${selectedCount})`;
-            });
-        }
-
-        function showEvidenceApproval() {
-            if (currentUser.role !== 'leader' && currentUser.role !== 'internal_committee') return;
-            const container = document.getElementById('evidenceContent');
-            const pendingEvidences = evidences.filter(e => e.userId !== currentUser.id && e.status !== 'approved');
-            if (pendingEvidences.length === 0) {
-                container.innerHTML = `<div class="etec-card" style="text-align: center;"><p>لا توجد شواهد بانتظار الاعتماد.</p></div>`;
-                return;
-            }
-            container.innerHTML = `
-                <div class="etec-card">
-                    <div class="etec-card-header"><div class="etec-card-title">اعتماد الشواهد</div></div>
-                    <table class="etec-table">
-                        <thead><tr><th>عنوان الشاهد</th><th>مقدم من</th><th>الإجراءات</th></tr></thead>
-                        <tbody>
-                            ${pendingEvidences.map(e => `<tr>
-                                <td>${e.title}</td><td>${e.userName}</td>
-                                <td>
-                                    <button class="btn-etec-secondary btn-sm" onclick="viewEvidence('${e.id}')"><i class="fas fa-eye"></i></button>
-                                    <button class="btn-etec-success btn-sm" onclick="approveEvidence('${e.id}')"><i class="fas fa-check"></i> اعتماد</button>
-                                    <button class="btn-etec-danger btn-sm" onclick="rejectEvidence('${e.id}')"><i class="fas fa-times"></i> رفض</button>
-                                </td>
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-
+        
         function viewEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
             const domain = domains.find(d => d.id === evidence.domainId);
             const standard = domain?.standards.find(s => s.id === evidence.standardId);
             const indicator = standard?.indicators.find(i => i.id === evidence.indicatorId);
-            const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
             let statusBadge = '', statusLabel = '';
             if (evidence.status === 'approved') { statusBadge = 'badge-status-approved'; statusLabel = 'معتمد'; }
             else if (evidence.status === 'rejected') { statusBadge = 'badge-status-rejected'; statusLabel = 'مرفوض'; }
             else { statusBadge = 'badge-status-pending'; statusLabel = 'قيد الاعتماد'; }
+            const canPrint = currentUser.role !== 'external_committee' && (evidence.status === 'approved' || evidence.status === 'pending');
+            const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
             
-            document.getElementById('evidenceContent').innerHTML = `
+            let html = `
                 <div class="etec-card">
                     <div class="etec-card-header">
                         <div class="etec-card-title">عرض الشاهد</div>
-                        <button class="btn-etec-secondary btn-sm" onclick="showPreviousEvidences()">رجوع</button>
+                        <div style="display: flex; gap: 10px;">
+                            ${canPrint ? `<button class="btn-etec-warning btn-sm" onclick="printSingleEvidence('${evidence.id}')"><i class="fas fa-print"></i> طباعة الشاهد</button>` : ''}
+                            <button class="btn-etec-secondary btn-sm" onclick="showPreviousEvidences()">رجوع</button>
+                        </div>
                     </div>
                     <h3 style="color: var(--etec-primary); margin-bottom: 20px;">${evidence.title}</h3>
                     <p><strong>الحالة:</strong> <span class="${statusBadge}">${statusLabel}</span></p>
@@ -965,33 +1314,50 @@
                     <p><strong>المنفذون:</strong> ${implementersNames}</p>
                     <p><strong>التاريخ:</strong> ${evidence.date}</p>
                     <p><strong>الرافع:</strong> ${evidence.userName}</p>
-                    ${evidence.images && evidence.images.length > 0 ? `<div style="margin-top: 20px;">${getImagesGridHtml(evidence.images)}</div>` : ''}
-                    ${evidence.pdf ? `<div class="pdf-pages-container" id="viewPdfContainer_${evidence.id}"></div>` : ''}
-                </div>
             `;
+            const rejections = evidence.approvals ? evidence.approvals.filter(a => a.status === 'rejected') : [];
+            if (rejections.length > 0) {
+                html += `<div class="rejection-box" style="margin-top: 15px;"><h4><i class="fas fa-exclamation-triangle"></i> أسباب الرفض:</h4>${rejections.map(r => `<div class="rejection-item"><strong>${r.userName} (${r.role})</strong>: ${r.reason}</div>`).join('')}</div>`;
+            }
+            html += `<div style="margin-top: 20px;"><strong>حالة الاعتمادات:</strong><table class="etec-table"><thead><tr><th>المعتمد</th><th>الصفة</th><th>الحالة</th><th>سبب الرفض</th></tr></thead><tbody>`;
+            if (evidence.approvals && evidence.approvals.length > 0) {
+                evidence.approvals.forEach(a => {
+                    let aBadge = '', aLabel = '';
+                    if (a.status === 'approved') { aBadge = 'badge-status-approved'; aLabel = 'وافق'; }
+                    else if (a.status === 'rejected') { aBadge = 'badge-status-rejected'; aLabel = 'رفض'; }
+                    html += `<tr><td>${a.userName}</td><td>${a.role}</td><td><span class="${aBadge}">${aLabel}</span></td><td>${a.reason || '-'}</td></tr>`;
+                });
+            } else { html += `<tr><td colspan="4" style="text-align: center;">لا توجد اعتمادات بعد</td></tr>`; }
+            html += `</tbody></table></div>`;
+            if (evidence.images && evidence.images.length > 0) html += `<div style="margin-top: 20px;">${getImagesGridHtml(evidence.images)}</div>`;
+            if (evidence.pdf) html += `<div class="pdf-pages-container" id="viewPdfContainer_${evidence.id}"></div>`;
+            html += `</div>`;
+            document.getElementById('evidenceContent').innerHTML = html;
             if (evidence.pdf) renderPdfToCanvas(evidence.id, evidence.pdf, `viewPdfContainer_${evidence.id}`);
         }
-
+        
         async function deleteEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
-            if (evidence.userId !== currentUser.id && currentUser.role !== 'leader') { showErrorModal('خطأ', 'فقط الرافع يمكنه الحذف'); return; }
-            showConfirmModal('تأكيد الحذف', `هل أنت متأكد من حذف "${evidence.title}"؟`, async () => {
+            if (evidence.userId !== currentUser.id && currentUser.role !== 'leader') { showErrorModal('خطأ', 'فقط الرافع الأصلي للشاهد يمكنه حذفه'); return; }
+            showConfirmModal('تأكيد الحذف', `هل أنت متأكد من حذف الشاهد "${evidence.title}" بشكل نهائي؟`, async () => {
                 const deleted = await deleteEvidenceFromDb(id);
                 if (deleted) {
                     evidences = evidences.filter(e => e.id !== id);
                     showSuccessModal('تم الحذف', 'تم حذف الشاهد بنجاح', () => showPreviousEvidences());
+                } else {
+                    showErrorModal('خطأ', 'فشل في حذف الشاهد');
                 }
             });
         }
-
+        
         function editEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
             const canEdit = evidence.userId === currentUser.id || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
-            if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية للتعديل'); return; }
+            if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
             const availableUsers = users.filter(u => u.role !== 'external_committee');
-            const currentIds = evidence.implementers ? evidence.implementers.map(imp => imp.userId) : [evidence.userId];
+            const currentImplementerIds = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userId) : [evidence.userId];
             
             document.getElementById('evidenceContent').innerHTML = `
                 <div class="etec-card">
@@ -1000,24 +1366,25 @@
                         <div class="form-group">
                             <label>المجال الرئيسي</label>
                             <select id="editDomainSelect" class="form-control" onchange="updateEditStandards()" required>
+                                <option value="">اختر المجال</option>
                                 ${domains.map(d => `<option value="${d.id}" ${d.id === evidence.domainId ? 'selected' : ''}>${d.name}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-group"><label>المعيار</label><select id="editStandardSelect" class="form-control" onchange="updateEditIndicators()" required></select></div>
                         <div class="form-group"><label>المؤشر</label><select id="editIndicatorSelect" class="form-control" required></select></div>
-                        <div class="form-group"><label>عنوان النشاط</label><input type="text" id="editEvTitle" class="form-control" value="${evidence.title}" required></div>
-                        <div class="form-group"><label>الوصف</label><textarea id="editEvDesc" class="form-control" rows="3" required>${evidence.description}</textarea></div>
-                        <div class="form-group"><label>المستفيدون</label><input type="text" id="editEvBeneficiaries" class="form-control" value="${evidence.beneficiaries}" required></div>
+                        <div class="form-group"><label>النشاط (عنوان الشاهد)</label><input type="text" id="editEvTitle" class="form-control" required value="${evidence.title}"></div>
+                        <div class="form-group"><label>وصف النشاط وأهدافه</label><textarea id="editEvDesc" class="form-control" rows="3" required>${evidence.description}</textarea></div>
+                        <div class="form-group"><label>المستفيدون</label><input type="text" id="editEvBeneficiaries" class="form-control" required value="${evidence.beneficiaries}"></div>
                         <div class="form-group">
-                            <label>المنفذون</label>
+                            <label>المنفذون (يمكن اختيار أكثر من منفذ)</label>
                             <select id="editEvImplementers" class="form-control" multiple style="height: auto; min-height: 100px;">
-                                ${availableUsers.map(u => `<option value="${u.id}" ${currentIds.includes(u.id) ? 'selected' : ''}>${u.name} - ${u.roleLabel}</option>`).join('')}
+                                ${availableUsers.map(u => `<option value="${u.id}" ${currentImplementerIds.includes(u.id) ? 'selected' : ''}>${u.name} - ${u.roleLabel}</option>`).join('')}
                             </select>
                         </div>
-                        <div class="form-group"><label>التاريخ</label><input type="date" id="editEvDate" class="form-control" value="${evidence.date}" required></div>
-                        <div class="form-group"><label>صور جديدة (اختياري)</label><input type="file" id="editEvImages" class="form-control" accept="image/*" multiple></div>
-                        <div class="form-group"><label>ملف PDF جديد (اختياري)</label><input type="file" id="editEvPdf" class="form-control" accept=".pdf"></div>
-                        <button type="submit" class="btn-etec-primary">تحديث الشاهد</button>
+                        <div class="form-group"><label>اليوم والتاريخ</label><input type="date" id="editEvDate" class="form-control" required value="${evidence.date}"></div>
+                        <div class="form-group"><label>التوثيق الإعلامي / الصور</label><input type="file" id="editEvImages" class="form-control" accept="image/*" multiple></div>
+                        <div class="form-group"><label>إرفاق ملف PDF</label><input type="file" id="editEvPdf" class="form-control" accept=".pdf"></div>
+                        <button type="submit" class="btn-etec-primary">تحديث الشاهد (سيتم تصفير الاعتمادات)</button>
                         <button type="button" class="btn-etec-secondary" onclick="showPreviousEvidences()">إلغاء</button>
                     </form>
                 </div>
@@ -1025,28 +1392,30 @@
             updateEditStandards(evidence.standardId);
             updateEditIndicators(evidence.indicatorId);
         }
-
+        
         function updateEditStandards(selectedStandardId = null) {
             const dId = parseInt(document.getElementById('editDomainSelect').value);
             const d = domains.find(x => x.id === dId);
             const stdSelect = document.getElementById('editStandardSelect');
-            stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}" ${s.id === selectedStandardId ? 'selected' : ''}>${s.name}</option>`).join('') : '';
+            stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}" ${s.id === selectedStandardId ? 'selected' : ''}>${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
             updateEditIndicators();
         }
-
+        
         function updateEditIndicators(selectedIndicatorId = null) {
             const dId = parseInt(document.getElementById('editDomainSelect').value);
             const sId = document.getElementById('editStandardSelect').value;
             const d = domains.find(x => x.id === dId);
             const s = d ? d.standards.find(x => x.id === sId) : null;
             const indSelect = document.getElementById('editIndicatorSelect');
-            indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}" ${i.id === selectedIndicatorId ? 'selected' : ''}>${i.name}</option>`).join('') : '';
+            indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}" ${i.id === selectedIndicatorId ? 'selected' : ''}>${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
         }
-
+        
         async function updateEvidence(e, id) {
             e.preventDefault();
             const evidence = evidences.find(ev => ev.id === id);
             if (!evidence) return;
+            const canEdit = evidence.userId === currentUser.id || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
+            if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
             
             const images = evidence.images || [];
             const filesInput = document.getElementById('editEvImages').files;
@@ -1059,9 +1428,9 @@
             if (pdfInput) pdfUrl = await uploadPdfToStorage(pdfInput, id);
             
             const implementersSelect = document.getElementById('editEvImplementers');
-            const selectedIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
-            if (!selectedIds.includes(evidence.userId)) selectedIds.push(evidence.userId);
-            const implementers = selectedIds.map(uid => { const u = users.find(x => x.id === uid); return { userId: u.id, userName: u.name, userRole: u.roleLabel }; });
+            const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
+            if (!selectedImplementerIds.includes(evidence.userId)) selectedImplementerIds.push(evidence.userId);
+            const implementers = selectedImplementerIds.map(uid => { const user = users.find(u => u.id === uid); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
             
             evidence.domainId = parseInt(document.getElementById('editDomainSelect').value);
             evidence.standardId = document.getElementById('editStandardSelect').value;
@@ -1077,19 +1446,19 @@
             evidence.status = currentUser.role === 'leader' ? 'approved' : 'pending';
             
             const updated = await updateEvidenceInDb(evidence);
-            if (updated) showSuccessModal('تم التحديث', 'تم تحديث الشاهد', () => showPreviousEvidences());
-            else showErrorModal('خطأ', 'فشل في التحديث');
+            if (updated) showSuccessModal('تم التحديث', 'تم تحديث الشاهد. سيحتاج إلى اعتماد جديد', () => showPreviousEvidences());
+            else showErrorModal('خطأ', 'فشل في تحديث الشاهد');
         }
-
+        
         function getImagesGridHtml(images) {
             if (!images || images.length === 0) return '';
             const gridClass = `images-grid-${images.length}`;
             let html = `<div class="${gridClass}">`;
-            images.forEach(img => { html += `<div class="media-image"><img src="${img}" alt="صورة"></div>`; });
+            images.forEach(imgSrc => { html += `<div class="media-image"><img src="${imgSrc}" alt="صورة الشاهد"></div>`; });
             html += '</div>';
             return html;
         }
-
+        
         async function renderPdfToCanvas(evidenceId, pdfData, containerId) {
             try {
                 const container = document.getElementById(containerId);
@@ -1118,6 +1487,7 @@
             } catch (error) { console.error('خطأ في عرض PDF:', error); }
         }
 
+        // ============ نظام الطباعة ============
         function printSingleEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
@@ -1131,35 +1501,44 @@
             
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-                <title>طباعة شاهد</title>
+                <title>طباعة شاهد - ${evidence.title}</title>
                 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; padding: 20px; }
-                    .evidence-print-page { max-width: 800px; margin: 0 auto; padding: 40px; border: 2px solid #3A2375; }
+                    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 20px; }
+                    .evidence-print-page { max-width: 800px; margin: 0 auto; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
                     .print-header { text-align: center; border-bottom: 3px solid #3A2375; padding-bottom: 15px; margin-bottom: 25px; }
-                    .print-header h1 { color: #3A2375; font-size: 28px; }
-                    .evidence-title { text-align: center; font-size: 22px; font-weight: 700; color: #C82269; margin-bottom: 25px; }
-                    .info-table { width: 100%; border-collapse: collapse; }
-                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; }
-                    .info-table th { background: #F4F5F8; width: 30%; }
-                    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
-                    .images-grid img { width: 100%; height: 200px; object-fit: cover; }
-                    .signature { margin-top: 40px; text-align: left; font-weight: 700; }
+                    .print-header h1 { color: #3A2375; font-size: 28px; margin-bottom: 5px; }
+                    .print-header p { color: #64748B; font-size: 14px; }
+                    .evidence-title { text-align: center; font-size: 22px; font-weight: 700; color: #C82269; margin-bottom: 25px; padding: 10px; background: #FFF0F5; border-radius: 8px; }
+                    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; line-height: 1.8; vertical-align: top; }
+                    .info-table th { background: #F4F5F8; width: 30%; font-weight: 600; color: #3A2375; }
+                    .info-table td { width: 70%; }
+                    .images-section { margin-top: 20px; }
+                    .images-section h3 { color: #3A2375; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px; }
+                    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+                    .images-grid img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #E2E8F0; }
+                    .signature { margin-top: 40px; text-align: left; font-weight: 700; font-size: 15px; }
+                    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
+                    .status-approved { background: #27AE60; }
+                    .status-pending { background: #E77B26; }
+                    @media print { body { padding: 0; } .evidence-print-page { border: none; padding: 20px; } .status-approved, .status-pending { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
                 </style></head><body>
                 <div class="evidence-print-page">
-                    <div class="print-header"><h1>ملف الإنجاز</h1></div>
+                    <div class="print-header"><h1>ملف الإنجاز</h1><p>شاهد معتمد - ${currentUser.name}</p></div>
                     <div class="evidence-title">${evidence.title}</div>
                     <table class="info-table">
-                        <tr><th>المجال</th><td>${domain?.name || ''}</td></tr>
-                        <tr><th>المعيار</th><td>${standard?.name || ''}</td></tr>
-                        <tr><th>المؤشر</th><td>${indicator?.name || ''}</td></tr>
-                        <tr><th>الوصف</th><td>${evidence.description || ''}</td></tr>
-                        <tr><th>المستفيدون</th><td>${evidence.beneficiaries || ''}</td></tr>
+                        <tr><th>المجال</th><td>${domain?.name || 'غير محدد'}</td></tr>
+                        <tr><th>المعيار</th><td>${standard?.name || 'غير محدد'}</td></tr>
+                        <tr><th>المؤشر</th><td>${indicator?.name || 'غير محدد'}</td></tr>
+                        <tr><th>وصف النشاط وأهدافه</th><td>${evidence.description || 'لا يوجد'}</td></tr>
+                        <tr><th>المستفيدون</th><td>${evidence.beneficiaries || 'لا يوجد'}</td></tr>
                         <tr><th>المنفذون</th><td>${implementersNames}</td></tr>
-                        <tr><th>التاريخ</th><td>${evidence.date}</td></tr>
+                        <tr><th>اليوم والتاريخ</th><td>${evidence.date}</td></tr>
+                        <tr><th>الحالة</th><td><span class="status-badge ${evidence.status === 'approved' ? 'status-approved' : 'status-pending'}">${evidence.status === 'approved' ? 'معتمد' : 'قيد الاعتماد'}</span></td></tr>
                     </table>
-                    ${evidence.images && evidence.images.length > 0 ? `<div class="images-grid">${evidence.images.map(img => `<img src="${img}">`).join('')}</div>` : ''}
+                    ${evidence.images && evidence.images.length > 0 ? `<div class="images-section"><h3>التوثيق الإعلامي</h3><div class="images-grid">${evidence.images.map(img => `<img src="${img}" alt="صورة">`).join('')}</div></div>` : ''}
                     <div class="signature">مدير المدرسة: أ / عمر عبد الله الحماد</div>
                 </div>
                 </body></html>
@@ -1167,7 +1546,7 @@
             printWindow.document.close();
             setTimeout(() => printWindow.print(), 500);
         }
-
+        
         function printSelectedEvidences() {
             const selectedIds = [];
             document.querySelectorAll('.print-evidence-checkbox:checked').forEach(cb => selectedIds.push(cb.dataset.evidenceId));
@@ -1184,7 +1563,7 @@
                 </div>
             `;
             
-            selectedEvidences.forEach((ev, index) => {
+            selectedEvidences.forEach(ev => {
                 const domain = domains.find(d => d.id === ev.domainId);
                 const standard = domain?.standards.find(s => s.id === ev.standardId);
                 const indicator = standard?.indicators.find(i => i.id === ev.indicatorId);
@@ -1219,31 +1598,42 @@
             setTimeout(() => printWindow.print(), 500);
         }
 
+        // ============ التقارير ============
         function showReports() {
             const contentArea = document.getElementById('contentArea');
-            contentArea.innerHTML = `
-                <div class="content-header"><h1>تقارير الاعتماد المدرسي</h1></div>
+            let buttonsHtml = `
+                <div class="content-header"><h1>تقارير الاعتماد المدرسي</h1><p>إنشاء التقارير ومتابعة سير العمل</p></div>
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;" class="no-print">
+                    <button class="btn-etec-primary" onclick="showReportBuilder()"><i class="fas fa-file-alt"></i> إنشاء تقرير</button>
+            `;
+            if (currentUser.role !== 'external_committee') buttonsHtml += `<button class="btn-etec-secondary" onclick="showWorkProgress()"><i class="fas fa-chart-line"></i> متابعة سير العمل</button>`;
+            buttonsHtml += `</div><div id="reportContent"></div>`;
+            contentArea.innerHTML = buttonsHtml;
+        }
+        
+        function showReportBuilder() {
+            document.getElementById('reportContent').innerHTML = `
                 <div class="etec-card">
-                    <div class="etec-card-header"><div class="etec-card-title">إنشاء تقرير</div></div>
-                    <p style="color: var(--text-muted);">اختر المؤشرات المطلوبة</p>
+                    <div class="etec-card-header"><div class="etec-card-title">إنشاء تقرير مخصص</div></div>
+                    <p style="margin-bottom: 15px; color: var(--text-muted);">حدد المجالات والمعايير والمؤشرات</p>
                     <div class="selection-tree">
                         ${domains.map(domain => `
                             <div class="domain-selection">
                                 <div class="domain-selection-header" onclick="toggleDomainSelection(${domain.id})">
                                     <input type="checkbox" id="domain_check_${domain.id}" onchange="toggleDomainSelection(${domain.id})" onclick="event.stopPropagation()">
-                                    <strong style="margin-right: 10px;">${domain.name}</strong>
+                                    <strong style="margin-right: 10px; font-size: 16px; color: var(--etec-primary);">${domain.name}</strong>
                                 </div>
-                                <div id="standards_container_${domain.id}" style="display: none;">
+                                <div id="standards_container_${domain.id}" style="display: none; margin-top: 10px;">
                                     ${domain.standards.map(standard => `
                                         <div class="standard-selection">
                                             <div class="standard-selection-header" onclick="toggleStandardSelection(${domain.id}, '${standard.id}')">
-                                                <input type="checkbox" id="standard_check_${domain.id}_${standard.id}" onclick="event.stopPropagation()">
+                                                <input type="checkbox" id="standard_check_${domain.id}_${standard.id}" onchange="toggleStandardSelection(${domain.id}, '${standard.id}')" onclick="event.stopPropagation()">
                                                 <span style="margin-right: 10px;">${standard.name}</span>
                                             </div>
                                             <div id="indicators_container_${domain.id}_${standard.id}" style="display: none;">
                                                 ${standard.indicators.map(indicator => `
                                                     <div class="indicator-selection">
-                                                        <input type="checkbox" id="indicator_check_${indicator.id}">
+                                                        <input type="checkbox" id="indicator_check_${indicator.id}" onchange="updateDomainStandardState(${domain.id}, '${standard.id}')">
                                                         <span style="margin-right: 10px;">${indicator.name}</span>
                                                     </div>
                                                 `).join('')}
@@ -1262,21 +1652,21 @@
                 </div>
             `;
         }
-
+        
         function toggleDomainSelection(domainId) {
             const checkbox = document.getElementById(`domain_check_${domainId}`);
             const container = document.getElementById(`standards_container_${domainId}`);
-            container.style.display = checkbox.checked ? 'block' : 'none';
+            if (checkbox.checked) container.style.display = 'block'; else container.style.display = 'none';
             container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = checkbox.checked);
         }
-
+        
         function toggleStandardSelection(domainId, standardId) {
             const checkbox = document.getElementById(`standard_check_${domainId}_${standardId}`);
             const container = document.getElementById(`indicators_container_${domainId}_${standardId}`);
-            container.style.display = checkbox.checked ? 'block' : 'none';
+            if (checkbox.checked) container.style.display = 'block'; else container.style.display = 'none';
             container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = checkbox.checked);
         }
-
+        
         function selectAllIndicators() {
             document.querySelectorAll('input[id^="indicator_check_"]').forEach(cb => cb.checked = true);
             document.querySelectorAll('input[id^="standard_check_"]').forEach(cb => cb.checked = true);
@@ -1288,7 +1678,7 @@
                 });
             });
         }
-
+        
         function deselectAllIndicators() {
             document.querySelectorAll('input[id^="indicator_check_"]').forEach(cb => cb.checked = false);
             document.querySelectorAll('input[id^="standard_check_"]').forEach(cb => cb.checked = false);
@@ -1300,7 +1690,7 @@
                 });
             });
         }
-
+        
         function generateReport() {
             const selectedIndicators = [];
             document.querySelectorAll('input[id^="indicator_check_"]:checked').forEach(cb => selectedIndicators.push(cb.id.replace('indicator_check_', '')));
@@ -1308,6 +1698,8 @@
             
             let html = '';
             let hasData = false;
+            html += `<div class="no-print" style="margin-bottom: 20px; text-align: left;"><button class="btn-etec-primary" onclick="printReport()"><i class="fas fa-print"></i> طباعة التقرير</button></div>`;
+            
             domains.forEach(d => {
                 let domainHasData = false;
                 d.standards.forEach(s => {
@@ -1352,19 +1744,77 @@
             
             if (!hasData) html = `<div class="etec-card" style="text-align: center;"><h3>لا توجد شواهد معتمدة</h3></div>`;
             
-            const reportContent = document.createElement('div');
-            reportContent.innerHTML = html;
-            const contentArea = document.getElementById('contentArea');
-            contentArea.innerHTML = `<div class="no-print" style="margin-bottom: 20px;"><button class="btn-etec-primary" onclick="printReport()"><i class="fas fa-print"></i> طباعة التقرير</button></div>`;
-            contentArea.appendChild(reportContent);
+            document.getElementById('reportContent').innerHTML = html;
         }
-
+        
         function printReport() { window.print(); }
-
-        // تهيئة المنصة
-        document.addEventListener('DOMContentLoaded', function() {
-            // المنصة جاهزة
-        });
+        
+        function showWorkProgress() {
+            let tableHTML = `
+                <div class="no-print" style="margin-bottom: 20px; text-align: left;"><button class="btn-etec-primary" onclick="printWorkProgress()"><i class="fas fa-print"></i> طباعة سير العمل</button></div>
+                <div class="work-progress-print-header"><h1>تقرير متابعة سير العمل</h1><p>حالة المؤشرات حسب عدد الشواهد المعتمدة</p></div>
+                <div class="etec-card">
+                    <div class="etec-card-header"><div class="etec-card-title">متابعة سير العمل</div></div>
+                    <table class="etec-table">
+                        <thead><tr><th>المجال</th><th>المعيار</th><th>المؤشر</th><th>عدد الشواهد المعتمدة</th><th>الحالة</th></tr></thead>
+                        <tbody>
+            `;
+            domains.forEach(domain => {
+                domain.standards.forEach(standard => {
+                    standard.indicators.forEach(indicator => {
+                        const approvedCount = evidences.filter(e => e.indicatorId === indicator.id && e.status === 'approved').length;
+                        let statusLabel = '', statusClass = '';
+                        if (approvedCount === 0) { statusLabel = 'لا توجد شواهد'; statusClass = 'badge-no-evidence'; }
+                        else if (approvedCount <= 2) { statusLabel = 'منخفض'; statusClass = 'badge-low'; }
+                        else if (approvedCount <= 4) { statusLabel = 'متوسط'; statusClass = 'badge-medium'; }
+                        else if (approvedCount === 5) { statusLabel = 'مرتفع'; statusClass = 'badge-high'; }
+                        else { statusLabel = 'مرتفع جداً'; statusClass = 'badge-very-high'; }
+                        tableHTML += `<tr><td>${domain.name}</td><td>${standard.name}</td><td>${indicator.name}</td><td style="text-align: center;">${approvedCount}</td><td><span class="badge-level ${statusClass}">${statusLabel}</span></td></tr>`;
+                    });
+                });
+            });
+            tableHTML += `</tbody></table></div>`;
+            document.getElementById('reportContent').innerHTML = tableHTML;
+        }
+        
+        function printWorkProgress() { window.print(); }
+        
+        function showBackup() {
+            if (currentUser.role !== 'leader') return;
+            document.getElementById('contentArea').innerHTML = `
+                <div class="content-header"><h1>النسخ الاحتياطي</h1></div>
+                <div class="etec-card">
+                    <div class="etec-card-header"><div class="etec-card-title">إدارة النسخ الاحتياطي</div></div>
+                    <div style="display: flex; gap: 20px; margin-top: 20px;">
+                        <div class="etec-card" style="flex: 1; text-align: center; cursor: pointer;" onclick="exportBackup()"><i class="fas fa-download" style="font-size: 48px; color: var(--etec-primary);"></i><h3>تصدير النسخة الاحتياطية</h3></div>
+                        <div class="etec-card" style="flex: 1; text-align: center;"><i class="fas fa-upload" style="font-size: 48px; color: var(--etec-primary);"></i><h3>استيراد نسخة احتياطية</h3><input type="file" accept=".json" onchange="importBackup(event)" style="margin-top: 15px;"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function exportBackup() {
+            const dataStr = JSON.stringify({ evidences, users, exportDate: new Date().toISOString() }, null, 2);
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr));
+            linkElement.setAttribute('download', `backup_${new Date().toISOString().split('T')[0]}.json`);
+            linkElement.click();
+            showSuccessModal('تم التصدير', 'تم تصدير النسخة الاحتياطية بنجاح');
+        }
+        
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const backupData = JSON.parse(e.target.result);
+                    if (backupData.evidences) evidences = backupData.evidences;
+                    showSuccessModal('تم الاستيراد', 'تم استيراد النسخة الاحتياطية بنجاح', () => showBackup());
+                } catch (error) { showErrorModal('خطأ', 'خطأ في استيراد الملف'); }
+            };
+            reader.readAsText(file);
+        }
     </script>
 </body>
 </html>
