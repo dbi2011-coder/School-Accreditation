@@ -11,7 +11,6 @@
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
@@ -449,12 +448,18 @@
             display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        #printArea { display: none; }
+        .selection-tree { margin-top: 15px; }
+        .domain-selection { margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; background: #fafafa; }
+        .domain-selection-header { display: flex; align-items: center; cursor: pointer; }
+        .standard-selection { margin: 10px 25px 10px 0; padding: 10px; border-right: 3px solid var(--border-color); }
+        .standard-selection-header { display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+        .indicator-selection { margin: 5px 45px 5px 0; display: flex; align-items: center; }
 
         @media print {
             body { background: white; color: #000; }
-            .sidebar, .content-header, .no-print, .top-header, #loginPage, #mainApp { display: none !important; }
-            #printArea { display: block !important; width: 100%; margin: 0; padding: 0; }
+            .sidebar, .content-header, .no-print, .top-header { display: none !important; }
+            .main-content { margin-right: 0 !important; padding: 0 !important; }
+            .content-body { padding: 0 !important; }
             .report-page {
                 border: none; border-radius: 0; box-shadow: none;
                 padding: 20px; padding-bottom: 70px;
@@ -543,7 +548,6 @@
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
-        const storage = firebase.storage();
 
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -696,26 +700,30 @@
             }
         }
 
+        // ============ كود رفع وتحويل الملفات الجديد عبر FileReader ============
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
         async function uploadImageToStorage(file, evidenceId) {
             try {
-                const storageRef = storage.ref(`evidences/${evidenceId}/${Date.now()}_${file.name}`);
-                const snapshot = await storageRef.put(file);
-                const url = await snapshot.ref.getDownloadURL();
-                return url;
+                return await readFileAsDataURL(file);
             } catch (error) {
-                console.error('خطأ في رفع الصورة:', error);
+                console.error('خطأ في قراءة الصورة:', error);
                 return null;
             }
         }
 
         async function uploadPdfToStorage(file, evidenceId) {
             try {
-                const storageRef = storage.ref(`evidences/${evidenceId}/${Date.now()}_${file.name}`);
-                const snapshot = await storageRef.put(file);
-                const url = await snapshot.ref.getDownloadURL();
-                return url;
+                return await readFileAsDataURL(file);
             } catch (error) {
-                console.error('خطأ في رفع PDF:', error);
+                console.error('خطأ في قراءة ملف PDF:', error);
                 return null;
             }
         }
@@ -1376,382 +1384,360 @@
                             </select>
                         </div>
                         <div class="form-group"><label>اليوم والتاريخ</label><input type="date" id="editEvDate" class="form-control" required value="${evidence.date}"></div>
-                        <div class="form-group"><label>التوثيق الإعلامي / الصور (اختياري لاستبدال الصور)</label><input type="file" id="editEvImages" class="form-control" accept="image/*" multiple></div>
-                        <div class="form-group"><label>إرفاق ملف PDF (اختياري لاستبدال الملف)</label><input type="file" id="editEvPdf" class="form-control" accept=".pdf"></div>
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" class="btn-etec-primary">تحديث الشاهد (سيتم تصفير الاعتمادات)</button>
-                            <button type="button" class="btn-etec-secondary" onclick="showPreviousEvidences()">إلغاء</button>
-                        </div>
+                        <div class="form-group"><label>التوثيق الإعلامي / الصور</label><input type="file" id="editEvImages" class="form-control" accept="image/*" multiple></div>
+                        <div class="form-group"><label>إرفاق ملف PDF</label><input type="file" id="editEvPdf" class="form-control" accept=".pdf"></div>
+                        <button type="submit" class="btn-etec-primary">تحديث الشاهد (سيتم تصفير الاعتمادات)</button>
+                        <button type="button" class="btn-etec-secondary" onclick="showPreviousEvidences()">إلغاء</button>
                     </form>
                 </div>
             `;
-            updateEditStandards();
-            document.getElementById('editStandardSelect').value = evidence.standardId;
-            updateEditIndicators();
-            document.getElementById('editIndicatorSelect').value = evidence.indicatorId;
+            updateEditStandards(evidence.standardId);
+            updateEditIndicators(evidence.indicatorId);
         }
-
-        function updateEditStandards() {
+        
+        function updateEditStandards(selectedStandardId = null) {
             const dId = parseInt(document.getElementById('editDomainSelect').value);
             const d = domains.find(x => x.id === dId);
             const stdSelect = document.getElementById('editStandardSelect');
-            stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}">${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
+            stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}" ${s.id === selectedStandardId ? 'selected' : ''}>${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
             updateEditIndicators();
         }
-
-        function updateEditIndicators() {
+        
+        function updateEditIndicators(selectedIndicatorId = null) {
             const dId = parseInt(document.getElementById('editDomainSelect').value);
             const sId = document.getElementById('editStandardSelect').value;
             const d = domains.find(x => x.id === dId);
             const s = d ? d.standards.find(x => x.id === sId) : null;
             const indSelect = document.getElementById('editIndicatorSelect');
-            indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}">${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
+            indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}" ${i.id === selectedIndicatorId ? 'selected' : ''}>${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
         }
-
+        
         async function updateEvidence(e, id) {
             e.preventDefault();
-            const evidence = evidences.find(x => x.id === id);
+            const evidence = evidences.find(ev => ev.id === id);
             if (!evidence) return;
-
+            const canEdit = evidence.userId === currentUser.id || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
+            if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
+            
+            const images = evidence.images || [];
             const filesInput = document.getElementById('editEvImages').files;
-            if (filesInput.length > 0) {
-                const newImages = [];
-                for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
-                    const url = await uploadImageToStorage(filesInput[i], id);
-                    if (url) newImages.push(url);
-                }
-                if (newImages.length > 0) evidence.images = newImages;
+            for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
+                const url = await uploadImageToStorage(filesInput[i], id);
+                if (url) images.push(url);
             }
-
             const pdfInput = document.getElementById('editEvPdf').files[0];
-            if (pdfInput) {
-                const newPdfUrl = await uploadPdfToStorage(pdfInput, id);
-                if (newPdfUrl) evidence.pdf = newPdfUrl;
-            }
-
+            let pdfUrl = evidence.pdf;
+            if (pdfInput) pdfUrl = await uploadPdfToStorage(pdfInput, id);
+            
             const implementersSelect = document.getElementById('editEvImplementers');
             const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
             if (!selectedImplementerIds.includes(evidence.userId)) selectedImplementerIds.push(evidence.userId);
-            evidence.implementers = selectedImplementerIds.map(uId => {
-                const user = users.find(u => u.id === uId);
-                return { userId: user.id, userName: user.name, userRole: user.roleLabel };
-            });
-
+            const implementers = selectedImplementerIds.map(uid => { const user = users.find(u => u.id === uid); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
+            
             evidence.domainId = parseInt(document.getElementById('editDomainSelect').value);
             evidence.standardId = document.getElementById('editStandardSelect').value;
             evidence.indicatorId = document.getElementById('editIndicatorSelect').value;
             evidence.title = document.getElementById('editEvTitle').value;
             evidence.description = document.getElementById('editEvDesc').value;
             evidence.beneficiaries = document.getElementById('editEvBeneficiaries').value;
+            evidence.implementers = implementers;
             evidence.date = document.getElementById('editEvDate').value;
+            evidence.images = images;
+            evidence.pdf = pdfUrl;
             evidence.approvals = [];
             evidence.status = currentUser.role === 'leader' ? 'approved' : 'pending';
-
+            
             const updated = await updateEvidenceInDb(evidence);
-            if (updated) {
-                showSuccessModal('تم التحديث', 'تم تحديث بيانات الشاهد بنجاح', () => showPreviousEvidences());
-            } else {
-                showErrorModal('خطأ', 'فشل في تحديث بيانات الشاهد');
-            }
+            if (updated) showSuccessModal('تم التحديث', 'تم تحديث الشاهد. سيحتاج إلى اعتماد جديد', () => showPreviousEvidences());
+            else showErrorModal('خطأ', 'فشل في تحديث الشاهد');
         }
-
+        
         function getImagesGridHtml(images) {
             if (!images || images.length === 0) return '';
-            const count = Math.min(images.length, 4);
-            const gridClass = `images-grid-${count}`;
+            const gridClass = `images-grid-${images.length}`;
             let html = `<div class="${gridClass}">`;
-            for (let i = 0; i < count; i++) {
-                html += `<div class="media-image"><img src="${images[i]}" alt="توثيق شاهد"></div>`;
-            }
-            html += `</div>`;
+            images.forEach(imgSrc => { html += `<div class="media-image"><img src="${imgSrc}" alt="صورة الشاهد"></div>`; });
+            html += '</div>';
             return html;
         }
-
-        async function renderPdfToCanvas(evidenceId, pdfUrl, containerId) {
-            const container = document.getElementById(containerId);
-            if (!container || !pdfUrl) return;
-            container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 15px;"><i class="fas fa-spinner fa-spin"></i> جاري تحميل ملف PDF...</p>';
+        
+        async function renderPdfToCanvas(evidenceId, pdfData, containerId) {
             try {
-                const loadingTask = pdfjsLib.getDocument(pdfUrl);
-                const pdf = await loadingTask.promise;
+                const container = document.getElementById(containerId);
+                if (!container) return;
                 container.innerHTML = '';
+                let pdf;
+                if (pdfData.startsWith('data:')) {
+                    const base64 = pdfData.split(',')[1];
+                    const binaryString = atob(base64);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+                    pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+                } else {
+                    pdf = await pdfjsLib.getDocument(pdfData).promise;
+                }
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
-                    const scale = 1.5;
-                    const viewport = page.getViewport({ scale });
+                    const viewport = page.getViewport({ scale: 1.5 });
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
                     canvas.width = viewport.width;
-                    canvas.style.marginBottom = '15px';
-                    canvas.style.maxWidth = '100%';
-                    canvas.style.height = 'auto';
-                    container.appendChild(canvas);
+                    canvas.height = viewport.height;
                     await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    container.appendChild(canvas);
                 }
-            } catch (error) {
-                console.error('خطأ في عرض PDF:', error);
-                container.innerHTML = '<p style="text-align: center; color: var(--status-rejected); padding: 15px;"><i class="fas fa-exclamation-triangle"></i> تتعذر معاينة ملف PDF المرفق.</p>';
-            }
+            } catch (error) { console.error('خطأ في عرض PDF:', error); }
         }
 
-        // ============ الطباعة والتقارير ============
-        function printSingleEvidence(id) {
-            const evidence = evidences.find(e => e.id === id);
+        // ============ نظام الطباعة ============
+        function printSingleEvidence(evidenceId) {
+            const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
-            generateAndPrint([evidence]);
+            if (evidence.status !== 'approved' && evidence.status !== 'pending') { showErrorModal('تنبيه', 'لا يمكن طباعة الشواهد المرفوضة'); return; }
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            if (!printWindow) { showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة'); return; }
+            const domain = domains.find(d => d.id === evidence.domainId);
+            const standard = domain?.standards.find(s => s.id === evidence.standardId);
+            const indicator = standard?.indicators.find(i => i.id === evidence.indicatorId);
+            const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
+            
+            printWindow.document.write(`
+                <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+                <title>طباعة شاهد - ${evidence.title}</title>
+                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 20px; }
+                    .evidence-print-page { max-width: 800px; margin: 0 auto; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
+                    .print-header { text-align: center; border-bottom: 3px solid #3A2375; padding-bottom: 15px; margin-bottom: 25px; }
+                    .print-header h1 { color: #3A2375; font-size: 28px; margin-bottom: 5px; }
+                    .print-header p { color: #64748B; font-size: 14px; }
+                    .evidence-title { text-align: center; font-size: 22px; font-weight: 700; color: #C82269; margin-bottom: 25px; padding: 10px; background: #FFF0F5; border-radius: 8px; }
+                    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; line-height: 1.8; vertical-align: top; }
+                    .info-table th { background: #F4F5F8; width: 30%; font-weight: 600; color: #3A2375; }
+                    .info-table td { width: 70%; }
+                    .images-section { margin-top: 20px; }
+                    .images-section h3 { color: #3A2375; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px; }
+                    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+                    .images-grid img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #E2E8F0; }
+                    .signature { margin-top: 40px; text-align: left; font-weight: 700; font-size: 15px; }
+                    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
+                    .status-approved { background: #27AE60; }
+                    .status-pending { background: #E77B26; }
+                </style>
+                </head>
+                <body>
+                    <div class="evidence-print-page">
+                        <div class="print-header">
+                            <h1>منصة الاعتماد المدرسي</h1>
+                            <p>مدرسة عمرو بن العاص الابتدائية</p>
+                        </div>
+                        <div class="evidence-title">${evidence.title}</div>
+                        <table class="info-table">
+                            <tr><th>المجال</th><td>${domain ? domain.name : ''}</td></tr>
+                            <tr><th>المعيار</th><td>${standard ? standard.name : ''}</td></tr>
+                            <tr><th>المؤشر</th><td>${indicator ? indicator.name : ''}</td></tr>
+                            <tr><th>وصف النشاط</th><td>${evidence.description || '-'}</td></tr>
+                            <tr><th>المستفيدون</th><td>${evidence.beneficiaries || '-'}</td></tr>
+                            <tr><th>المنفذون</th><td>${implementersNames}</td></tr>
+                            <tr><th>التاريخ</th><td>${evidence.date}</td></tr>
+                            <tr><th>الحالة</th><td><span class="status-badge ${evidence.status === 'approved' ? 'status-approved' : 'status-pending'}">${evidence.status === 'approved' ? 'معتمد' : 'قيد الاعتماد'}</span></td></tr>
+                        </table>
+                        ${evidence.images && evidence.images.length > 0 ? `
+                            <div class="images-section">
+                                <h3>التوثيق الإعلامي والصور</h3>
+                                <div class="images-grid">
+                                    ${evidence.images.map(img => `<img src="${img}" alt="صورة الشاهد">`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="signature">
+                            مدير المدرسة: ___________________
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() { window.print(); };
+                    <\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         }
 
         function printSelectedEvidences() {
-            const selectedCheckboxes = document.querySelectorAll('.print-evidence-checkbox:checked');
-            if (selectedCheckboxes.length === 0) {
-                showErrorModal('تنبيه', 'الرجاء تحديد شاهد واحد على الأقل للطباعة');
+            const checkboxes = document.querySelectorAll('.print-evidence-checkbox:checked');
+            if (checkboxes.length === 0) {
+                showErrorModal('تنبيه', 'برجاء اختيار شاهد واحد على الأقل للطباعة');
                 return;
             }
-            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.getAttribute('data-evidence-id'));
-            const selectedEvs = evidences.filter(e => selectedIds.includes(e.id));
-            generateAndPrint(selectedEvs);
-        }
+            
+            const selectedIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-evidence-id'));
+            const selectedEvidences = evidences.filter(e => selectedIds.includes(e.id));
+            
+            const printWindow = window.open('', '_blank', 'width=900,height=700');
+            if (!printWindow) {
+                showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة');
+                return;
+            }
+            
+            let htmlContent = `
+                <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+                <title>طباعة الشواهد المختارة</title>
+                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 20px; }
+                    .evidence-print-page { max-width: 800px; margin: 0 auto 30px auto; padding: 30px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
+                    .evidence-print-page:last-child { page-break-after: auto; }
+                    .print-header { text-align: center; border-bottom: 3px solid #3A2375; padding-bottom: 10px; margin-bottom: 20px; }
+                    .print-header h1 { color: #3A2375; font-size: 24px; margin-bottom: 5px; }
+                    .print-header p { color: #64748B; font-size: 13px; }
+                    .evidence-title { text-align: center; font-size: 20px; font-weight: 700; color: #C82269; margin-bottom: 20px; padding: 8px; background: #FFF0F5; border-radius: 8px; }
+                    .info-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 10px; line-height: 1.6; vertical-align: top; font-size: 14px; }
+                    .info-table th { background: #F4F5F8; width: 30%; font-weight: 600; color: #3A2375; }
+                    .info-table td { width: 70%; }
+                    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px; }
+                    .images-grid img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; border: 1px solid #E2E8F0; }
+                    .signature { margin-top: 25px; text-align: left; font-weight: 700; font-size: 14px; }
+                    @media print {
+                        body { padding: 0; }
+                        .evidence-print-page { border: 1px solid #3A2375; margin-bottom: 0; }
+                    }
+                </style>
+                </head>
+                <body>
+            `;
 
-        function generateAndPrint(evidenceList) {
-            const existingPrint = document.getElementById('printArea');
-            if (existingPrint) existingPrint.remove();
-
-            const printArea = document.createElement('div');
-            printArea.id = 'printArea';
-
-            let html = '';
-            evidenceList.forEach((evidence) => {
+            selectedEvidences.forEach(evidence => {
                 const domain = domains.find(d => d.id === evidence.domainId);
                 const standard = domain?.standards.find(s => s.id === evidence.standardId);
                 const indicator = standard?.indicators.find(i => i.id === evidence.indicatorId);
                 const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
 
-                html += `
-                    <div class="report-page activity-report">
-                        <div class="activity-title">${evidence.title}</div>
-                        <table class="activity-table">
-                            <tr><th>المجال الرئيسي</th><td>${domain ? domain.name : ''}</td></tr>
+                htmlContent += `
+                    <div class="evidence-print-page">
+                        <div class="print-header">
+                            <h1>منصة الاعتماد المدرسي</h1>
+                            <p>مدرسة عمرو بن العاص الابتدائية</p>
+                        </div>
+                        <div class="evidence-title">${evidence.title}</div>
+                        <table class="info-table">
+                            <tr><th>المجال</th><td>${domain ? domain.name : ''}</td></tr>
                             <tr><th>المعيار</th><td>${standard ? standard.name : ''}</td></tr>
                             <tr><th>المؤشر</th><td>${indicator ? indicator.name : ''}</td></tr>
-                            <tr><th>وصف النشاط وأهدافه</th><td>${evidence.description || ''}</td></tr>
-                            <tr><th>المستفيدون</th><td>${evidence.beneficiaries || ''}</td></tr>
+                            <tr><th>وصف النشاط</th><td>${evidence.description || '-'}</td></tr>
+                            <tr><th>المستفيدون</th><td>${evidence.beneficiaries || '-'}</td></tr>
                             <tr><th>المنفذون</th><td>${implementersNames}</td></tr>
                             <tr><th>التاريخ</th><td>${evidence.date}</td></tr>
                         </table>
-                        ${evidence.images && evidence.images.length > 0 ? getImagesGridHtml(evidence.images) : ''}
-                        <div class="principal-signature">
-                            <p>مدير المدرسة / قائد المدرسة</p>
-                            <p style="margin-top: 10px;">التوقيع: ............................</p>
-                        </div>
+                        ${evidence.images && evidence.images.length > 0 ? `
+                            <div class="images-grid">
+                                ${evidence.images.map(img => `<img src="${img}" alt="صورة الشاهد">`).join('')}
+                            </div>
+                        ` : ''}
+                        <div class="signature">مدير المدرسة: ___________________</div>
                     </div>
                 `;
             });
 
-            printArea.innerHTML = html;
-            document.body.appendChild(printArea);
+            htmlContent += `
+                <script>
+                    window.onload = function() { window.print(); };
+                <\/script>
+                </body>
+                </html>
+            `;
 
-            window.print();
-
-            setTimeout(() => {
-                const p = document.getElementById('printArea');
-                if (p) p.remove();
-            }, 1000);
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
         }
 
-        // ============ لوحة التقارير الإحصائية ============
+        // ============ التقارير والنسخ الاحتياطي ============
         function showReports() {
             const contentArea = document.getElementById('contentArea');
-            
-            let totalEvidences = evidences.length;
-            let approvedEvidences = evidences.filter(e => e.status === 'approved').length;
-            let pendingEvidences = evidences.filter(e => e.status === 'pending').length;
-            let rejectedEvidences = evidences.filter(e => e.status === 'rejected').length;
-
-            let domainStats = domains.map(d => {
-                let dEvidences = evidences.filter(e => e.domainId === d.id);
-                let dApproved = dEvidences.filter(e => e.status === 'approved').length;
-                return {
-                    id: d.id,
-                    name: d.name,
-                    total: dEvidences.length,
-                    approved: dApproved,
-                    standardsCount: d.standards.length
-                };
-            });
-
-            let html = `
-                <div class="content-header">
-                    <h1>التقارير والإحصائيات الشاملة</h1>
-                    <p>متابعة مستوى استيفاء الشواهد وفق معايير الاعتماد المدرسي</p>
-                </div>
-
+            contentArea.innerHTML = `
+                <div class="content-header"><h1>التقارير والإحصائيات</h1></div>
                 <div class="etec-card">
-                    <div class="etec-card-header">
-                        <div class="etec-card-title"><i class="fas fa-chart-pie"></i> ملخص الإنجاز العام</div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px;">
-                        <div style="background: #f8fafc; border: 1px solid var(--border-color); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 28px; font-weight: 800; color: var(--etec-primary);">${totalEvidences}</div>
-                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">إجمالي الشواهد</div>
-                        </div>
-                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 28px; font-weight: 800; color: var(--level-progress);">${approvedEvidences}</div>
-                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">الشواهد المعتمدة</div>
-                        </div>
-                        <div style="background: #fffbe2; border: 1px solid #fef08a; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 28px; font-weight: 800; color: var(--status-pending);">${pendingEvidences}</div>
-                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">قيد الاعتماد</div>
-                        </div>
-                        <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="font-size: 28px; font-weight: 800; color: var(--status-rejected);">${rejectedEvidences}</div>
-                            <div style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">الشواهد المرفوضة</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="etec-card">
-                    <div class="etec-card-header">
-                        <div class="etec-card-title"><i class="fas fa-layer-group"></i> التقرير حسب المجالات الأربعة</div>
-                    </div>
+                    <div class="etec-card-header"><div class="etec-card-title">إحصائيات المجالات</div></div>
                     <table class="etec-table">
                         <thead>
                             <tr>
-                                <th>المجال</th>
+                                <th>المجال الرئيسي</th>
                                 <th>عدد المعايير</th>
-                                <th>عدد الشواهد المسجلة</th>
-                                <th>الشواهد المعتمدة</th>
-                                <th>نسبة الاعتماد</th>
+                                <th>عدد المؤشرات</th>
+                                <th>الشواهد المرفوعة</th>
+                                <th>المعتمدة</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${domainStats.map(ds => {
-                                let pct = ds.total > 0 ? Math.round((ds.approved / ds.total) * 100) : 0;
+                            ${domains.map(d => {
+                                const totalStandards = d.standards.length;
+                                const totalIndicators = d.standards.reduce((acc, s) => acc + s.indicators.length, 0);
+                                const domainEvidences = evidences.filter(e => e.domainId === d.id);
+                                const approvedEvidences = domainEvidences.filter(e => e.status === 'approved').length;
                                 return `<tr>
-                                    <td><strong>${ds.name}</strong></td>
-                                    <td>${ds.standardsCount}</td>
-                                    <td>${ds.total}</td>
-                                    <td><span class="badge-status-approved">${ds.approved}</span></td>
-                                    <td>
-                                        <div style="display: flex; align-items: center; gap: 10px;">
-                                            <div style="flex: 1; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
-                                                <div style="width: ${pct}%; background: var(--etec-primary); height: 100%;"></div>
-                                            </div>
-                                            <span style="font-weight: 700; font-size: 13px;">${pct}%</span>
-                                        </div>
-                                    </td>
+                                    <td><strong>${d.name}</strong></td>
+                                    <td>${totalStandards}</td>
+                                    <td>${totalIndicators}</td>
+                                    <td>${domainEvidences.length}</td>
+                                    <td><span class="badge-status-approved">${approvedEvidences}</span></td>
                                 </tr>`;
                             }).join('')}
                         </tbody>
                     </table>
                 </div>
-
-                <div class="etec-card">
-                    <div class="etec-card-header">
-                        <div class="etec-card-title"><i class="fas fa-list-check"></i> تفاصيل استيفاء المؤشرات</div>
-                    </div>
-                    ${domains.map(d => `
-                        <div style="margin-bottom: 25px;">
-                            <h3 style="color: var(--etec-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 8px; margin-bottom: 15px;">${d.name}</h3>
-                            ${d.standards.map(s => `
-                                <div style="margin-bottom: 15px; background: #fafafa; padding: 15px; border-radius: 10px; border: 1px solid var(--border-color);">
-                                    <h4 style="color: var(--etec-secondary); margin-bottom: 10px;">${s.name}</h4>
-                                    <table class="etec-table" style="margin: 0;">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 60%;">المؤشر</th>
-                                                <th style="width: 20%; text-align: center;">عدد الشواهد</th>
-                                                <th style="width: 20%; text-align: center;">الحالة</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${s.indicators.map(ind => {
-                                                let indEvs = evidences.filter(e => e.indicatorId === ind.id && e.status === 'approved');
-                                                let hasEv = indEvs.length > 0;
-                                                return `<tr>
-                                                    <td>${ind.name}</td>
-                                                    <td style="text-align: center; font-weight: 700;">${indEvs.length}</td>
-                                                    <td style="text-align: center;">
-                                                        ${hasEv ? '<span class="badge-level badge-very-high">مستوفى</span>' : '<span class="badge-level badge-no-evidence">غير مستوفى</span>'}
-                                                    </td>
-                                                </tr>`;
-                                            }).join('')}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `).join('')}
-                </div>
             `;
-
-            contentArea.innerHTML = html;
         }
 
-        // ============ النسخ الاحتياطي ============
         function showBackup() {
             if (currentUser.role !== 'leader') return;
             const contentArea = document.getElementById('contentArea');
             contentArea.innerHTML = `
-                <div class="content-header">
-                    <h1>إدارة النسخ الاحتياطي واستعادة البيانات</h1>
-                    <p>تصدير واستيراد قواعد بيانات الشواهد لضمان سلامة المعلومات</p>
-                </div>
-
+                <div class="content-header"><h1>النسخ الاحتياطي والإدارة</h1></div>
                 <div class="etec-card">
-                    <div class="etec-card-header">
-                        <div class="etec-card-title"><i class="fas fa-download"></i> تصدير النسخة الاحتياطية</div>
-                    </div>
-                    <p style="margin-bottom: 15px; color: var(--text-muted);">قم بتحميل نسخة احتياطية من جميع الشواهد المعتمدة والمسجلة بملف JSON للحفظ المحلي.</p>
-                    <button class="btn-etec-primary" onclick="exportDataToJson()"><i class="fas fa-file-export"></i> تصدير البيانات الآن</button>
-                </div>
-
-                <div class="etec-card">
-                    <div class="etec-card-header">
-                        <div class="etec-card-title"><i class="fas fa-upload"></i> استيراد نسخة احتياطية</div>
-                    </div>
-                    <p style="margin-bottom: 15px; color: var(--text-muted);">اختر ملف JSON لاستعادة الشواهد وإضافتها إلى النظام.</p>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="file" id="importJsonFile" accept=".json" class="form-control" style="max-width: 400px;">
-                        <button class="btn-etec-secondary" onclick="importDataFromJson()"><i class="fas fa-file-import"></i> استيراد البيانات</button>
+                    <div class="etec-card-header"><div class="etec-card-title">تصدير واستيراد البيانات</div></div>
+                    <p style="margin-bottom: 20px; color: var(--text-muted);">يمكنك تصدير بيانات الشواهد كملف JSON للنسخ الاحتياطي أو استيرادها لاحقاً.</p>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <button class="btn-etec-primary" onclick="exportData()"><i class="fas fa-download"></i> تصدير النسخة الاحتياطية (JSON)</button>
+                        <label class="btn-etec-secondary" style="cursor: pointer; margin: 0;">
+                            <i class="fas fa-upload"></i> استيراد نسخة احتياطية
+                            <input type="file" id="importJsonFile" accept=".json" onchange="importData(event)" style="display: none;">
+                        </label>
                     </div>
                 </div>
             `;
         }
 
-        function exportDataToJson() {
+        function exportData() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(evidences, null, 2));
             const downloadAnchor = document.createElement('a');
             downloadAnchor.setAttribute("href", dataStr);
-            downloadAnchor.setAttribute("download", `school_accreditation_backup_${new Date().toISOString().slice(0,10)}.json`);
+            downloadAnchor.setAttribute("download", `backup_evidences_${new Date().toISOString().slice(0,10)}.json`);
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             downloadAnchor.remove();
-            showSuccessModal('تم التصدير', 'تم تصدير ملف النسخة الاحتياطية بنجاح');
         }
 
-        function importDataFromJson() {
-            const fileInput = document.getElementById('importJsonFile');
-            const file = fileInput.files[0];
-            if (!file) {
-                showErrorModal('خطأ', 'الرجاء اختيار ملف JSON أولاً');
-                return;
-            }
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
-                    const importedData = JSON.parse(e.target.result);
-                    if (Array.isArray(importedData)) {
-                        for (let item of importedData) {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        for (const item of imported) {
                             await saveEvidenceToDb(item);
                         }
                         await loadEvidencesFromDb();
-                        showSuccessModal('تم الاستيراد', `تم استيراد ${importedData.length} شاهد بنجاح`, () => showReports());
+                        showSuccessModal('تم الاستيراد', 'تم استيراد البيانات بنجاح', () => showPreviousEvidences());
                     } else {
-                        showErrorModal('خطأ', 'تنسيق الملف غير صحيح');
+                        showErrorModal('خطأ', 'نسق الملف غير صحيح');
                     }
                 } catch (err) {
-                    showErrorModal('خطأ', 'حدث خطأ أثناء قراءة الملف');
+                    showErrorModal('خطأ', 'فشل في قراءة ملف البيانات');
                 }
             };
             reader.readAsText(file);
