@@ -584,11 +584,11 @@
         const db = firebase.firestore();
 
         // ============================================================
-        // 2. GOOGLE DRIVE CONFIG (يجب تعديل هذه القيم)
+        // 2. GOOGLE DRIVE CONFIG (تم تحديث المفتاح)
         // ============================================================
         // 🔴 قم بتغيير هذه القيم بالقيم الخاصة بك من Google Cloud Console
         const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID';  // مثال: '1ABC123xyz...'
-        const API_KEY = 'YOUR_GOOGLE_API_KEY';                  // مثال: 'AIzaSy...'
+        const API_KEY = 'AIzaSyCyjjtdmDc0TCVjMJ_7q3MRIuCAXj7neqk';  // ✅ تم تحديثه بالمفتاح الجديد
         const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';              // مثال: '123456-abc.apps.googleusercontent.com'
         
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
@@ -728,7 +728,49 @@
         }
 
         // ============================================================
-        // 4. FILE UPLOAD FUNCTIONS (مع دعم Google Drive)
+        // 4. IMAGE COMPRESSION (ضغط الصور)
+        // ============================================================
+        function compressImage(file, maxWidth = 600, maxHeight = 400, quality = 0.5) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // حساب الأبعاد الجديدة مع الحفاظ على النسبة
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = Math.round(height * (maxWidth / width));
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = Math.round(width * (maxHeight / height));
+                                height = maxHeight;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // تصدير كـ JPEG بجودة منخفضة
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // ============================================================
+        // 5. FILE UPLOAD FUNCTIONS (مع دعم Google Drive وضغط الصور)
         // ============================================================
         function readFileAsDataURL(file) {
             return new Promise((resolve, reject) => {
@@ -747,13 +789,13 @@
                     return result.url;
                 }
                 
-                // في حالة الفشل، حفظ الصورة كـ DataURL (حل احتياطي للصور الصغيرة)
-                console.warn('⚠️ Using fallback: saving image as DataURL');
-                const dataUrl = await readFileAsDataURL(file);
-                if (dataUrl.length < 800000) { // أقل من 800KB
-                    return dataUrl;
+                // في حالة الفشل، ضغط الصورة بشكل أقوى
+                console.warn('⚠️ Using fallback: compressing image as DataURL');
+                const compressedDataUrl = await compressImage(file, 600, 400, 0.5);
+                if (compressedDataUrl.length < 500000) { // أقل من 500KB
+                    return compressedDataUrl;
                 }
-                throw new Error('الصورة كبيرة جداً للحفظ كـ DataURL');
+                throw new Error('الصورة كبيرة جداً حتى بعد الضغط');
             } catch (error) {
                 console.error('❌ Failed to upload image:', error);
                 throw error;
@@ -771,7 +813,7 @@
                 // في حالة الفشل، حفظ PDF كـ DataURL (حل احتياطي)
                 console.warn('⚠️ Using fallback: saving PDF as DataURL');
                 const dataUrl = await readFileAsDataURL(file);
-                if (dataUrl.length < 800000) { // أقل من 800KB
+                if (dataUrl.length < 300000) { // أقل من 300KB
                     return dataUrl;
                 }
                 throw new Error('ملف PDF كبير جداً للحفظ كـ DataURL');
@@ -782,7 +824,7 @@
         }
 
         // ============================================================
-        // 5. RENDER FUNCTIONS (عرض الملفات من Google Drive)
+        // 6. RENDER FUNCTIONS (عرض الملفات من Google Drive)
         // ============================================================
         function getImagesGridHtml(images) {
             if (!images || images.length === 0) return '';
@@ -862,12 +904,12 @@
         }
 
         // ============================================================
-        // 6. PDF.JS WORKER
+        // 7. PDF.JS WORKER
         // ============================================================
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // ============================================================
-        // 7. DOMAINS & USERS DATA
+        // 8. DOMAINS & USERS DATA
         // ============================================================
         const domains = [
             {
@@ -974,7 +1016,7 @@
         let currentUser = null;
 
         // ============================================================
-        // 8. FIREBASE CRUD FUNCTIONS
+        // 9. FIREBASE CRUD FUNCTIONS
         // ============================================================
         async function loadEvidencesFromDb() {
             try {
@@ -1022,7 +1064,7 @@
         }
 
         // ============================================================
-        // 9. MODAL SYSTEM
+        // 10. MODAL SYSTEM
         // ============================================================
         function showCustomModal({ type = 'info', title = '', message = '', icon = 'fa-info-circle', confirmText = 'موافق', cancelText = 'إلغاء', showCancel = false, onConfirm = null, onCancel = null, input = null, textarea = null }) {
             const iconMap = { 'success': 'fa-check-circle', 'danger': 'fa-exclamation-triangle', 'warning': 'fa-exclamation-circle', 'info': 'fa-info-circle', 'primary': 'fa-bell' };
@@ -1080,7 +1122,7 @@
         function showTextareaModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'danger', title, message, icon: 'fa-comment-alt', confirmText: 'تأكيد الرفض', cancelText: 'إلغاء', showCancel: true, textarea: { placeholder, value }, onConfirm, onCancel }); }
 
         // ============================================================
-        // 10. USER MANAGEMENT
+        // 11. USER MANAGEMENT
         // ============================================================
         function showAddUserModal() {
             const modalHtml = `
@@ -1138,7 +1180,7 @@
         }
 
         // ============================================================
-        // 11. APPROVAL SYSTEM
+        // 12. APPROVAL SYSTEM
         // ============================================================
         function getRequiredApprovers(evidence) {
             const approvers = [];
@@ -1197,7 +1239,7 @@
         }
 
         // ============================================================
-        // 12. LOGIN & NAVIGATION
+        // 13. LOGIN & NAVIGATION
         // ============================================================
         async function handleLogin(event) {
             event.preventDefault();
@@ -1291,7 +1333,7 @@
         }
 
         // ============================================================
-        // 13. USER MANAGEMENT UI
+        // 14. USER MANAGEMENT UI
         // ============================================================
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
@@ -1354,7 +1396,7 @@
         }
 
         // ============================================================
-        // 14. EVIDENCE MANAGEMENT
+        // 15. EVIDENCE MANAGEMENT
         // ============================================================
         function showEvidenceManagement() {
             const contentArea = document.getElementById('contentArea');
@@ -1657,7 +1699,7 @@
         }
 
         // ============================================================
-        // 15. VIEW, EDIT, DELETE EVIDENCE
+        // 16. VIEW, EDIT, DELETE EVIDENCE
         // ============================================================
         function viewEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
@@ -1894,7 +1936,7 @@
         }
 
         // ============================================================
-        // 16. PRINT FUNCTIONS
+        // 17. PRINT FUNCTIONS
         // ============================================================
         function printSingleEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
@@ -2083,7 +2125,7 @@
         }
 
         // ============================================================
-        // 17. REPORTS & BACKUP
+        // 18. REPORTS & BACKUP
         // ============================================================
         function showReports() {
             const contentArea = document.getElementById('contentArea');
@@ -2174,7 +2216,7 @@
         }
 
         // ============================================================
-        // 18. SYSTEM INITIALIZATION
+        // 19. SYSTEM INITIALIZATION
         // ============================================================
         async function initSystem() {
             try {
@@ -2201,7 +2243,8 @@
 
         console.log('🚀 نظام منصة الاعتماد المدرسي جاهز للعمل');
         console.log('📁 سيتم تخزين الملفات في Google Drive (مع حل احتياطي)');
-        console.log('🔑 تأكد من تحديث قيم DRIVE_FOLDER_ID, API_KEY, CLIENT_ID');
+        console.log('🔑 تم تحديث مفتاح API بنجاح');
+        console.log('📌 ملاحظة: تأكد من تحديث قيم DRIVE_FOLDER_ID و CLIENT_ID أيضاً');
     </script>
 </body>
 </html>
