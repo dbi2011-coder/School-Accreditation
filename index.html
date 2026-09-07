@@ -12,8 +12,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
-    <!-- Google Drive API -->
+    <!-- Google APIs -->
     <script src="https://apis.google.com/js/api.js"></script>
+    <!-- Google Identity Services (مهم للمصادقة) -->
+    <script src="https://accounts.google.com/gsi/client"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
@@ -568,7 +570,7 @@
 
     <script>
         // ============================================================
-        // 1. FIREBASE CONFIG (تم التحديث)
+        // 1. FIREBASE CONFIG
         // ============================================================
         const firebaseConfig = {
             apiKey: "AIzaSyBKp4BDgtzJoJySkP80ldVy0Pz1UULXXH8",
@@ -584,11 +586,11 @@
         const db = firebase.firestore();
 
         // ============================================================
-        // 2. GOOGLE DRIVE CONFIG (تم تحديث المفتاح)
+        // 2. GOOGLE DRIVE CONFIG 
         // ============================================================
         // 🔴 قم بتغيير هذه القيم بالقيم الخاصة بك من Google Cloud Console
         const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID';  // مثال: '1ABC123xyz...'
-        const API_KEY = 'AIzaSyCyjjtdmDc0TCVjMJ_7q3MRIuCAXj7neqk';  // ✅ تم تحديثه بالمفتاح الجديد
+        const API_KEY = 'AIzaSyCyjjtdmDc0TCVjMJ_7q3MRIuCAXj7neqk';  // ✅ تم تحديثه
         const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';              // مثال: '123456-abc.apps.googleusercontent.com'
         
         const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
@@ -598,7 +600,7 @@
         let isDriveInitialized = false;
 
         // ============================================================
-        // 3. GOOGLE DRIVE API FUNCTIONS
+        // 3. GOOGLE DRIVE API FUNCTIONS (محسنة)
         // ============================================================
         function initializeGoogleDrive() {
             return new Promise((resolve, reject) => {
@@ -626,29 +628,45 @@
 
         function authenticateGoogle() {
             return new Promise((resolve, reject) => {
+                // إذا كان لدينا توكن مسبق ولا يزال صالحاً
                 if (accessToken) {
                     resolve(accessToken);
                     return;
                 }
                 
                 try {
+                    // التحقق من وجود مكتبة Google Identity Services
+                    if (typeof google === 'undefined' || typeof google.accounts === 'undefined') {
+                        reject(new Error('مكتبة Google Identity Services لم يتم تحميلها. يرجى إعادة تحميل الصفحة.'));
+                        return;
+                    }
+                    
+                    // تهيئة Token Client
                     tokenClient = google.accounts.oauth2.initTokenClient({
                         client_id: CLIENT_ID,
                         scope: SCOPES,
                         callback: (tokenResponse) => {
                             if (tokenResponse.error) {
+                                console.error('❌ OAuth error:', tokenResponse.error);
                                 reject(tokenResponse.error);
                                 return;
                             }
                             accessToken = tokenResponse.access_token;
+                            // تعيين التوكن في GAPI
                             gapi.client.setToken({ access_token: accessToken });
                             console.log('✅ Google authenticated successfully');
                             resolve(accessToken);
                         },
+                        error_callback: (error) => {
+                            console.error('❌ OAuth error callback:', error);
+                            reject(error);
+                        }
                     });
                     
+                    // طلب التوكن - ستظهر نافذة تسجيل الدخول
                     tokenClient.requestAccessToken();
                 } catch (error) {
+                    console.error('❌ Authentication initialization error:', error);
                     reject(error);
                 }
             });
@@ -770,7 +788,7 @@
         }
 
         // ============================================================
-        // 5. FILE UPLOAD FUNCTIONS (مع دعم Google Drive وضغط الصور)
+        // 5. FILE UPLOAD FUNCTIONS
         // ============================================================
         function readFileAsDataURL(file) {
             return new Promise((resolve, reject) => {
@@ -824,7 +842,7 @@
         }
 
         // ============================================================
-        // 6. RENDER FUNCTIONS (عرض الملفات من Google Drive)
+        // 6. RENDER FUNCTIONS
         // ============================================================
         function getImagesGridHtml(images) {
             if (!images || images.length === 0) return '';
@@ -1448,7 +1466,6 @@
                 </div>
             `;
             
-            // إضافة مستمع لتحديث حالة الرفع
             document.getElementById('evImages').addEventListener('change', function() {
                 updateUploadStatus(this.files, 'images');
             });
@@ -1824,7 +1841,6 @@
             updateEditStandards(evidence.standardId);
             updateEditIndicators(evidence.indicatorId);
             
-            // إضافة مستمع لتحديث حالة الرفع
             document.getElementById('editEvImages').addEventListener('change', function() {
                 updateEditUploadStatus(this.files, 'images');
             });
@@ -2224,15 +2240,12 @@
                 console.log('✅ Google Drive API initialized successfully');
             } catch (error) {
                 console.warn('⚠️ Google Drive initialization failed, using fallback storage:', error.message);
-                // الاستمرار بدون Google Drive (سيتم استخدام DataURL كحل احتياطي)
             }
         }
 
-        // تهيئة النظام عند تحميل الصفحة
         document.addEventListener('DOMContentLoaded', function() {
             initSystem();
             
-            // إضافة مستمع لتحديث زر الطباعة
             document.addEventListener('change', function(e) {
                 if (e.target.classList.contains('print-evidence-checkbox')) {
                     updatePrintButton();
