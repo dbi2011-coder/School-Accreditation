@@ -12,14 +12,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
-    <!-- Google APIs -->
-    <script src="https://apis.google.com/js/api.js"></script>
-    <!-- Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client"></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <style>
+        /* ===== جميع الأنماط السابقة ===== */
         :root {
             --etec-primary: #3A2375;
             --etec-primary-light: #523499;
@@ -510,50 +506,6 @@
         .file-upload-status.success { color: var(--status-approved); background: #e8f5e9; }
         .file-upload-status.error { color: var(--status-rejected); background: #fce4ec; }
         .file-upload-status .file-name { font-weight: 600; color: var(--text-main); }
-
-        /* Google Drive Auth Button */
-        .gdrive-auth-btn {
-            background: #4285F4;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-family: var(--font-family-arabic);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s;
-        }
-        .gdrive-auth-btn:hover {
-            background: #3367D6;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.4);
-        }
-        .gdrive-auth-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .gdrive-auth-btn i {
-            font-size: 18px;
-        }
-        .gdrive-status {
-            font-size: 13px;
-            padding: 5px 12px;
-            border-radius: 6px;
-            display: inline-block;
-        }
-        .gdrive-status.connected {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        .gdrive-status.disconnected {
-            background: #fce4ec;
-            color: #c62828;
-        }
     </style>
 </head>
 <body>
@@ -629,193 +581,107 @@
         const db = firebase.firestore();
 
         // ============================================================
-        // 2. GOOGLE DRIVE CONFIG
+        // 2. GOOGLE DRIVE CONFIG - Service Account Method
         // ============================================================
-        const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID';
-        const API_KEY = 'AIzaSyCyjjtdmDc0TCVjMJ_7q3MRIuCAXj7neqk';
-        const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
-        
-        const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
-        
-        let accessToken = null;
-        let isDriveInitialized = false;
-        let isAuthenticating = false;
+        // 🔴 استبدل هذه القيم بالمعلومات من ملف JSON الخاص بـ Service Account
+        const SERVICE_ACCOUNT_EMAIL = 'YOUR_SERVICE_ACCOUNT_EMAIL'; // من ملف JSON: client_email
+        const PRIVATE_KEY = 'YOUR_PRIVATE_KEY'; // من ملف JSON: private_key (انسخ المفتاح كاملاً مع \n)
+        const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID'; // معرف مجلد Drive
 
         // ============================================================
-        // 3. GOOGLE DRIVE API FUNCTIONS (بدون نافذة منبثقة)
+        // 3. JWT Token Generation (بدون مكتبات خارجية)
         // ============================================================
-        function initializeGoogleDrive() {
-            return new Promise((resolve, reject) => {
-                if (typeof gapi === 'undefined') {
-                    reject('Google API library not loaded');
-                    return;
-                }
-                
-                gapi.load('client', async () => {
-                    try {
-                        await gapi.client.init({
-                            apiKey: API_KEY,
-                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                        });
-                        isDriveInitialized = true;
-                        console.log('✅ Google Drive API initialized');
-                        resolve();
-                    } catch (error) {
-                        console.error('❌ Failed to initialize Google Drive:', error);
-                        reject(error);
-                    }
-                });
-            });
+        function base64UrlEncode(str) {
+            return btoa(str)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
         }
 
-        // ============================================================
-        // طريقة المصادقة بدون نافذة منبثقة - باستخدام redirect
-        // ============================================================
-        function authenticateGoogle() {
-            return new Promise((resolve, reject) => {
-                // إذا كان لدينا توكن مسبق
-                if (accessToken) {
-                    resolve(accessToken);
-                    return;
-                }
-
-                // منع تكرار المصادقة
-                if (isAuthenticating) {
-                    reject(new Error('جاري المصادقة حالياً، يرجى الانتظار'));
-                    return;
-                }
-
-                try {
-                    // التحقق من وجود مكتبة GIS
-                    if (typeof google === 'undefined' || typeof google.accounts === 'undefined') {
-                        reject(new Error('مكتبة Google Identity Services لم يتم تحميلها'));
-                        return;
-                    }
-
-                    isAuthenticating = true;
-
-                    // استخدام redirect بدلاً من popup
-                    const client = google.accounts.oauth2.initCodeClient({
-                        client_id: CLIENT_ID,
-                        scope: SCOPES,
-                        ux_mode: 'redirect',
-                        redirect_uri: window.location.origin + window.location.pathname,
-                        callback: (response) => {
-                            isAuthenticating = false;
-                            if (response.error) {
-                                console.error('❌ OAuth Error:', response);
-                                reject(response.error);
-                                return;
-                            }
-                            // استخراج الكود من الرابط
-                            const urlParams = new URLSearchParams(window.location.search);
-                            const code = urlParams.get('code');
-                            if (code) {
-                                // في التطبيقات البسيطة، نستخدم طريقة مبسطة
-                                // للحصول على التوكن (هذا يتطلب backend عادة)
-                                // ولكننا سنستخدم طريقة بديلة
-                                exchangeCodeForToken(code).then(token => {
-                                    if (token) {
-                                        accessToken = token;
-                                        gapi.client.setToken({ access_token: token });
-                                        console.log('✅ Google authenticated successfully');
-                                        resolve(token);
-                                    } else {
-                                        reject(new Error('فشل الحصول على التوكن'));
-                                    }
-                                }).catch(reject);
-                            } else {
-                                // إذا لم يكن هناك كود، نطلب المصادقة
-                                client.requestCode();
-                            }
-                        }
-                    });
-
-                    // طلب الكود
-                    client.requestCode();
-
-                } catch (error) {
-                    isAuthenticating = false;
-                    console.error('❌ Authentication error:', error);
-                    reject(error);
-                }
-            });
+        function base64UrlDecode(str) {
+            return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
         }
 
-        // دالة مبسطة لتبادل الكود (في التطبيقات البسيطة)
-        // هذه الدالة تحاول الحصول على التوكن من التخزين المحلي
-        async function exchangeCodeForToken(code) {
-            // في حالة عدم وجود backend، نستخدم طريقة أبسط
-            // نتحقق من وجود توكن في sessionStorage
-            const savedToken = sessionStorage.getItem('google_access_token');
-            if (savedToken) {
-                return savedToken;
-            }
+        function generateJWT() {
+            const header = {
+                alg: 'RS256',
+                typ: 'JWT'
+            };
             
-            // إذا لم يكن هناك توكن، نطلب من المستخدم تسجيل الدخول مرة أخرى
-            // هذه طريقة مبسطة - في الإنتاج استخدم backend
-            return null;
-        }
+            const now = Math.floor(Date.now() / 1000);
+            const payload = {
+                iss: SERVICE_ACCOUNT_EMAIL,
+                scope: 'https://www.googleapis.com/auth/drive.file',
+                aud: 'https://oauth2.googleapis.com/token',
+                exp: now + 3600,
+                iat: now
+            };
 
-        // ============================================================
-        // طريقة بديلة للمصادقة باستخدام زر تسجيل الدخول
-        // ============================================================
-        function showGoogleAuthButton() {
-            return new Promise((resolve, reject) => {
-                // إنشاء زر تسجيل الدخول
-                const container = document.createElement('div');
-                container.style.cssText = 'text-align: center; padding: 20px;';
-                container.innerHTML = `
-                    <button id="googleAuthBtn" class="gdrive-auth-btn">
-                        <i class="fab fa-google"></i>
-                        تسجيل الدخول بحساب Google
-                    </button>
-                    <div style="margin-top: 10px; font-size: 13px; color: var(--text-muted);">
-                        مطلوب للوصول إلى Google Drive ورفع الملفات
-                    </div>
-                `;
-                
-                document.body.appendChild(container);
-                
-                document.getElementById('googleAuthBtn').addEventListener('click', async () => {
-                    try {
-                        const token = await authenticateGoogle();
-                        container.remove();
-                        resolve(token);
-                    } catch (error) {
-                        container.remove();
-                        reject(error);
-                    }
-                });
-                
-                // محاولة المصادقة التلقائية
-                authenticateGoogle().then(token => {
-                    container.remove();
-                    resolve(token);
-                }).catch(() => {
-                    // انتظر المستخدم
+            const encodedHeader = base64UrlEncode(JSON.stringify(header));
+            const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+            const signatureInput = encodedHeader + '.' + encodedPayload;
+
+            // استخدام Web Crypto API للتوقيع
+            return importPrivateKey(PRIVATE_KEY).then(privateKey => {
+                return crypto.subtle.sign(
+                    { name: 'RSASSA-PKCS1-v1_5' },
+                    privateKey,
+                    new TextEncoder().encode(signatureInput)
+                ).then(signature => {
+                    const encodedSignature = base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)));
+                    return signatureInput + '.' + encodedSignature;
                 });
             });
         }
 
+        function importPrivateKey(pem) {
+            // تنظيف المفتاح من تنسيق PEM
+            const pemHeader = '-----BEGIN PRIVATE KEY-----';
+            const pemFooter = '-----END PRIVATE KEY-----';
+            let pemContents = pem;
+            if (pem.includes(pemHeader)) {
+                pemContents = pem.replace(pemHeader, '').replace(pemFooter, '').replace(/\s/g, '');
+            }
+            const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+            
+            return crypto.subtle.importKey(
+                'pkcs8',
+                binaryDer.buffer,
+                { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+                false,
+                ['sign']
+            );
+        }
+
+        async function getAccessToken() {
+            const jwt = await generateJWT();
+            
+            const response = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    assertion: jwt
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error_description || 'فشل الحصول على التوكن');
+            }
+
+            const data = await response.json();
+            return data.access_token;
+        }
+
         // ============================================================
-        // رفع الملفات إلى Google Drive
+        // 4. رفع الملفات إلى Google Drive باستخدام Service Account
         // ============================================================
         async function uploadToGoogleDrive(file, evidenceId, fileType) {
             try {
-                // التحقق من التهيئة
-                if (!isDriveInitialized) {
-                    await initializeGoogleDrive();
-                }
-                
-                // المصادقة - في حالة الفشل، نعرض زر تسجيل الدخول
-                try {
-                    await authenticateGoogle();
-                } catch (authError) {
-                    console.warn('⚠️ Authentication failed, showing login button:', authError);
-                    // عرض زر تسجيل الدخول
-                    await showGoogleAuthButton();
-                }
+                const accessToken = await getAccessToken();
                 
                 const metadata = {
                     name: `${evidenceId}_${fileType}_${Date.now()}_${file.name}`,
@@ -871,7 +737,7 @@
         }
 
         // ============================================================
-        // دوال مساعدة للصور والملفات
+        // 5. دوال مساعدة (نفس الكود السابق)
         // ============================================================
         function getDriveDirectImageUrl(url) {
             if (!url) return url;
@@ -910,7 +776,6 @@
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        
                         resolve(canvas.toDataURL('image/jpeg', quality));
                     };
                     img.onerror = reject;
@@ -931,7 +796,7 @@
         }
 
         // ============================================================
-        // دوال رفع الملفات
+        // 6. دوال رفع الملفات الرئيسية
         // ============================================================
         async function uploadImageToStorage(file, evidenceId) {
             try {
@@ -972,7 +837,7 @@
         }
 
         // ============================================================
-        // 4. RENDER FUNCTIONS
+        // 7. RENDER FUNCTIONS
         // ============================================================
         function getImagesGridHtml(images) {
             if (!images || images.length === 0) return '';
@@ -1050,12 +915,12 @@
         }
 
         // ============================================================
-        // 5. PDF.JS WORKER
+        // 8. PDF.JS WORKER
         // ============================================================
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // ============================================================
-        // 6. DOMAINS & USERS DATA
+        // 9. DOMAINS & USERS DATA
         // ============================================================
         const domains = [
             {
@@ -1162,7 +1027,7 @@
         let currentUser = null;
 
         // ============================================================
-        // 7. FIREBASE CRUD FUNCTIONS
+        // 10. FIREBASE CRUD FUNCTIONS
         // ============================================================
         async function loadEvidencesFromDb() {
             try {
@@ -1210,7 +1075,7 @@
         }
 
         // ============================================================
-        // 8. MODAL SYSTEM
+        // 11. MODAL SYSTEM
         // ============================================================
         function showCustomModal({ type = 'info', title = '', message = '', icon = 'fa-info-circle', confirmText = 'موافق', cancelText = 'إلغاء', showCancel = false, onConfirm = null, onCancel = null, input = null, textarea = null }) {
             const iconMap = { 'success': 'fa-check-circle', 'danger': 'fa-exclamation-triangle', 'warning': 'fa-exclamation-circle', 'info': 'fa-info-circle', 'primary': 'fa-bell' };
@@ -1268,7 +1133,7 @@
         function showTextareaModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'danger', title, message, icon: 'fa-comment-alt', confirmText: 'تأكيد الرفض', cancelText: 'إلغاء', showCancel: true, textarea: { placeholder, value }, onConfirm, onCancel }); }
 
         // ============================================================
-        // 9. USER MANAGEMENT
+        // 12. USER MANAGEMENT
         // ============================================================
         function showAddUserModal() {
             const modalHtml = `
@@ -1326,7 +1191,7 @@
         }
 
         // ============================================================
-        // 10. APPROVAL SYSTEM
+        // 13. APPROVAL SYSTEM
         // ============================================================
         function getRequiredApprovers(evidence) {
             const approvers = [];
@@ -1385,7 +1250,7 @@
         }
 
         // ============================================================
-        // 11. LOGIN & NAVIGATION
+        // 14. LOGIN & NAVIGATION
         // ============================================================
         async function handleLogin(event) {
             event.preventDefault();
@@ -1405,13 +1270,6 @@
             document.getElementById('userTypeLabelSidebar').textContent = currentUser.roleLabel;
             document.getElementById('headerUserName').textContent = `مرحباً، ${currentUser.name}`;
             document.getElementById('headerUserRole').textContent = currentUser.roleLabel;
-
-            try {
-                await initializeGoogleDrive();
-                console.log('✅ Google Drive ready');
-            } catch (error) {
-                console.warn('⚠️ Google Drive not available, using fallback');
-            }
 
             await loadEvidencesFromDb();
             buildSidebar();
@@ -1478,7 +1336,7 @@
         }
 
         // ============================================================
-        // 12. USER MANAGEMENT UI
+        // 15. USER MANAGEMENT UI
         // ============================================================
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
@@ -1541,7 +1399,7 @@
         }
 
         // ============================================================
-        // 13. EVIDENCE MANAGEMENT
+        // 16. EVIDENCE MANAGEMENT
         // ============================================================
         function showEvidenceManagement() {
             const contentArea = document.getElementById('contentArea');
@@ -1843,7 +1701,7 @@
         }
 
         // ============================================================
-        // 14. VIEW, EDIT, DELETE EVIDENCE
+        // 17. VIEW, EDIT, DELETE EVIDENCE
         // ============================================================
         function viewEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
@@ -2079,7 +1937,7 @@
         }
 
         // ============================================================
-        // 15. PRINT FUNCTIONS
+        // 18. PRINT FUNCTIONS
         // ============================================================
         function printSingleEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
@@ -2268,7 +2126,7 @@
         }
 
         // ============================================================
-        // 16. REPORTS & BACKUP
+        // 19. REPORTS & BACKUP
         // ============================================================
         function showReports() {
             const contentArea = document.getElementById('contentArea');
@@ -2359,32 +2217,13 @@
         }
 
         // ============================================================
-        // 17. SYSTEM INITIALIZATION
+        // 20. SYSTEM INITIALIZATION
         // ============================================================
-        async function initSystem() {
-            try {
-                await initializeGoogleDrive();
-                console.log('✅ Google Drive API initialized successfully');
-            } catch (error) {
-                console.warn('⚠️ Google Drive initialization failed, using fallback storage:', error.message);
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
-            initSystem();
-            
-            document.addEventListener('change', function(e) {
-                if (e.target.classList.contains('print-evidence-checkbox')) {
-                    updatePrintButton();
-                    updateMasterCheckbox();
-                }
-            });
+            console.log('🚀 نظام منصة الاعتماد المدرسي جاهز للعمل');
+            console.log('📁 سيتم تخزين الملفات في Google Drive (Service Account)');
+            console.log('🔑 تأكد من تحديث قيم SERVICE_ACCOUNT_EMAIL, PRIVATE_KEY, DRIVE_FOLDER_ID');
         });
-
-        console.log('🚀 نظام منصة الاعتماد المدرسي جاهز للعمل');
-        console.log('📁 سيتم تخزين الملفات في Google Drive (مع حل احتياطي)');
-        console.log('🔑 تم تحديث مفتاح API بنجاح');
-        console.log('📌 ملاحظة: تأكد من تحديث قيم DRIVE_FOLDER_ID و CLIENT_ID أيضاً');
     </script>
 </body>
 </html>
