@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>منصة الاعتماد المدرسي</title>
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    
+
     <style>
         :root {
             --etec-primary: #3A2375;
@@ -43,9 +43,9 @@
             --level-very-high: #27AE60;
             --level-no-evidence: #95A5A6;
         }
-        
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         body {
             font-family: var(--font-family-arabic);
             background-color: var(--bg-main);
@@ -54,7 +54,7 @@
             text-align: right;
             min-height: 100vh;
         }
-        
+
         .login-container {
             display: flex;
             justify-content: center;
@@ -65,17 +65,17 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .login-container::before, .login-container::after {
             content: '';
             position: absolute;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.05);
         }
-        
+
         .login-container::before { width: 400px; height: 400px; top: -100px; right: -100px; }
         .login-container::after { width: 300px; height: 300px; bottom: -50px; left: -50px; }
-        
+
         .login-wrapper {
             display: flex;
             flex-direction: column;
@@ -86,51 +86,51 @@
             position: relative;
             z-index: 10;
         }
-        
+
         .login-hero { text-align: center; color: white; margin-bottom: 5px; }
-        
+
         .school-logo-top {
             width: 80px; height: 80px; border-radius: 50%;
             background: white; display: flex; align-items: center; justify-content: center;
             margin: 0 auto 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             overflow: hidden; border: 3px solid var(--etec-pink);
         }
-        
+
         .school-logo-top i { font-size: 40px; color: var(--etec-primary); }
-        
+
         .login-hero h1 {
             font-size: 28px; font-weight: 800; margin-bottom: 6px;
             text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        
+
         .login-hero p { font-size: 14px; opacity: 0.9; font-weight: 400; }
-        
+
         .login-card {
             background: white; border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%; max-width: 420px; overflow: hidden;
         }
-        
+
         .login-card-body { padding: 30px; }
-        
+
         .form-group { margin-bottom: 18px; }
         .form-group label {
             display: block; margin-bottom: 6px;
             font-weight: 600; color: var(--text-main); font-size: 13px;
         }
-        
+
         .form-control {
             width: 100%; padding: 12px 15px;
             border: 2px solid var(--border-color); border-radius: 10px;
             font-family: var(--font-family-arabic); font-size: 14px;
             transition: all 0.3s; background: #fafafa;
         }
-        
+
         .form-control:focus {
             outline: none; border-color: var(--etec-primary);
             background: white; box-shadow: 0 0 0 3px rgba(58, 35, 117, 0.1);
         }
-        
+
         .login-btn {
             width: 100%; padding: 12px;
             background: linear-gradient(135deg, var(--etec-pink), #E73C7E);
@@ -139,86 +139,86 @@
             cursor: pointer; transition: all 0.3s;
             display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        
+
         .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(200, 34, 105, 0.4); }
-        
+
         .login-footer { text-align: center; color: rgba(255, 255, 255, 0.9); width: 100%; max-width: 500px; }
         .rights-text { font-size: 13px; font-weight: 700; color: white; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
         .developer-text { font-size: 11px; color: rgba(255, 255, 255, 0.8); font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.3); margin-top: 3px; }
         .footer-divider { width: 70%; height: 1px; background: rgba(255, 255, 255, 0.3); margin: 8px auto; }
 
         .app-container { display: flex; min-height: 100vh; }
-        
+
         .sidebar {
             width: 280px; background: var(--etec-primary);
             color: var(--text-on-primary); position: fixed; top: 0; right: 0; bottom: 0;
             z-index: 1000; overflow-y: auto;
         }
-        
+
         .sidebar-header {
             padding: 25px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);
             text-align: center;
         }
-        
+
         .sidebar-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 5px; }
         .sidebar-header p { font-size: 13px; opacity: 0.8; }
         .sidebar-menu { padding: 20px 0; }
-        
+
         .menu-item {
             padding: 15px 20px; display: flex; align-items: center;
             cursor: pointer; transition: all 0.3s; border-right: 4px solid transparent;
         }
-        
+
         .menu-item:hover, .menu-item.active {
             background: rgba(255,255,255,0.15); border-right-color: var(--etec-pink);
         }
-        
+
         .menu-item i { margin-left: 15px; font-size: 20px; width: 24px; text-align: center; }
         .menu-item span { font-size: 15px; font-weight: 600; }
-        
+
         .main-content { flex: 1; margin-right: 280px; display: flex; flex-direction: column; min-height: 100vh; }
-        
+
         .top-header {
             background: var(--bg-card); border-bottom: 2px solid var(--border-color);
             padding: 15px 30px; display: flex; align-items: center; justify-content: flex-start;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 999;
         }
-        
+
         .user-greeting { display: flex; align-items: center; gap: 10px; }
-        
+
         .user-avatar {
             background: var(--etec-pink); color: white; width: 40px; height: 40px;
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
             font-size: 18px; font-weight: 700;
         }
-        
+
         .user-greeting-text { font-size: 16px; font-weight: 700; color: var(--text-main); }
         .user-role-text { font-size: 13px; color: var(--text-muted); font-weight: 600; }
-        
+
         .content-body { padding: 30px; flex: 1; }
-        
+
         .content-header {
             background: var(--bg-card); border-radius: 12px; padding: 20px;
             margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        
+
         .content-header h1 { color: var(--etec-primary); font-size: 24px; font-weight: 700; }
-        
+
         .etec-card {
             background: var(--bg-card); border-radius: 12px;
             border: 1px solid var(--border-color);
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
             padding: 20px; margin-bottom: 20px;
         }
-        
+
         .etec-card-header {
             display: flex; align-items: center; justify-content: space-between;
             border-bottom: 2px solid var(--bg-main);
             padding-bottom: 15px; margin-bottom: 15px;
         }
-        
+
         .etec-card-title { color: var(--etec-primary); font-weight: 700; font-size: 18px; }
-        
+
         .btn-etec-primary, .btn-etec-secondary, .btn-etec-warning, .btn-etec-success, .btn-etec-danger {
             font-family: var(--font-family-arabic); font-weight: 600;
             padding: 10px 20px; border: none; border-radius: 8px;
@@ -228,7 +228,7 @@
             vertical-align: middle; line-height: 1.5; min-width: 120px;
             text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        
+
         .btn-etec-primary { background-color: var(--etec-pink); color: #fff; }
         .btn-etec-primary:hover { background-color: #a81a56; }
         .btn-etec-secondary { background-color: var(--etec-primary); color: #fff; }
@@ -236,43 +236,43 @@
         .btn-etec-success { background-color: var(--level-progress); color: #fff; padding: 5px 15px; min-width: auto; }
         .btn-etec-danger { background-color: var(--level-readiness); color: #fff; padding: 5px 15px; min-width: auto; }
         .btn-etec-warning { background-color: var(--status-pending); color: #fff; }
-        
+
         .btn-sm {
             padding: 5px 10px; font-size: 13px; min-width: auto;
             border-radius: 6px; display: inline-flex;
             align-items: center; justify-content: center; gap: 5px;
         }
-        
+
         .etec-table {
             width: 100%; border-collapse: collapse;
             margin: 15px 0; background-color: var(--bg-card);
             border-radius: 8px; overflow: hidden;
         }
-        
+
         .etec-table th {
             background-color: var(--etec-primary); color: white;
             padding: 12px; font-weight: 600; text-align: right;
         }
-        
+
         .etec-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-        
+
         .badge-status-pending { background-color: var(--status-pending); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
         .badge-status-approved { background-color: var(--status-approved); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
         .badge-status-rejected { background-color: var(--status-rejected); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
         .badge-status-waiting { background-color: var(--status-waiting); color: white; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; display: inline-block; }
-        
+
         .badge-level { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
         .badge-low { background-color: var(--level-low); }
         .badge-medium { background-color: var(--level-medium); }
         .badge-high { background-color: var(--level-high); }
         .badge-very-high { background-color: var(--level-very-high); }
         .badge-no-evidence { background-color: var(--level-no-evidence); }
-        
+
         .rejection-box {
             background: #fff0f5; border: 2px solid var(--status-rejected);
             border-radius: 8px; padding: 15px; margin: 10px 0;
         }
-        
+
         .rejection-box h4 { color: var(--status-rejected); margin-bottom: 10px; font-size: 15px; }
         .rejection-item { padding: 8px; border-bottom: 1px solid #ffd6e7; font-size: 14px; }
         .rejection-item:last-child { border-bottom: none; }
@@ -284,69 +284,69 @@
             z-index: 2000; display: flex; justify-content: center; align-items: center;
             animation: fadeIn 0.3s ease;
         }
-        
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        
+
         .modal-content {
             background: white; border-radius: 16px; padding: 0;
             width: 90%; max-width: 500px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             animation: slideUp 0.3s ease; overflow: hidden;
         }
-        
+
         .modal-header {
             padding: 20px 25px; display: flex; align-items: center;
             justify-content: space-between; border-bottom: 2px solid #f0f0f0;
         }
-        
+
         .modal-header.success { background: linear-gradient(135deg, #27AE60, #1F7A4C); }
         .modal-header.danger { background: linear-gradient(135deg, #E74C3C, #C0392B); }
         .modal-header.warning { background: linear-gradient(135deg, #F39C12, #E67E22); }
         .modal-header.info { background: linear-gradient(135deg, #3498DB, #2980B9); }
         .modal-header.primary { background: linear-gradient(135deg, #3A2375, #6B4897); }
-        
+
         .modal-header .modal-icon {
             color: white; font-size: 22px; width: 50px; height: 50px;
             border-radius: 50%; display: flex; align-items: center;
             justify-content: center; background: rgba(255,255,255,0.2);
         }
-        
+
         .modal-header .modal-title { color: white; font-size: 18px; font-weight: 700; flex: 1; margin-right: 15px; }
-        
+
         .modal-close-btn {
             background: rgba(255,255,255,0.2); border: none; color: white;
             width: 35px; height: 35px; border-radius: 50%; cursor: pointer;
             font-size: 16px; display: flex; align-items: center;
             justify-content: center; transition: background 0.3s;
         }
-        
+
         .modal-close-btn:hover { background: rgba(255,255,255,0.4); }
         .modal-body { padding: 25px; }
-        
+
         .modal-message { font-size: 15px; color: var(--text-main); line-height: 1.8; margin-bottom: 20px; }
-        
+
         .modal-input {
             width: 100%; padding: 12px 15px; border: 2px solid var(--border-color);
             border-radius: 8px; font-family: var(--font-family-arabic);
             font-size: 14px; transition: border-color 0.3s; margin-bottom: 15px;
         }
-        
+
         .modal-input:focus { outline: none; border-color: var(--etec-primary); }
-        
+
         .modal-select {
             width: 100%; padding: 12px 15px; border: 2px solid var(--border-color);
             border-radius: 8px; font-family: var(--font-family-arabic);
             font-size: 14px; transition: border-color 0.3s; margin-bottom: 15px; background: white;
         }
-        
+
         .modal-select:focus { outline: none; border-color: var(--etec-primary); }
-        
+
         .modal-footer {
             padding: 15px 25px; display: flex; gap: 10px;
             justify-content: flex-end; border-top: 2px solid #f0f0f0; background: #fafafa;
         }
-        
+
         .modal-btn {
             font-family: var(--font-family-arabic); font-weight: 600;
             padding: 10px 20px; border: none; border-radius: 8px;
@@ -354,7 +354,7 @@
             align-items: center; gap: 8px; transition: all 0.3s;
             min-width: 100px; justify-content: center;
         }
-        
+
         .modal-btn-primary { background-color: var(--etec-primary); color: white; }
         .modal-btn-primary:hover { background-color: #2b1a5e; }
         .modal-btn-success { background-color: #27AE60; color: white; }
@@ -363,17 +363,17 @@
         .modal-btn-danger:hover { background-color: #C0392B; }
         .modal-btn-secondary { background-color: #E2E8F0; color: var(--text-main); }
         .modal-btn-secondary:hover { background-color: #CBD5E1; }
-        
+
         .modal-textarea {
             width: 100%; padding: 12px; border: 2px solid var(--border-color);
             border-radius: 8px; font-family: var(--font-family-arabic);
             font-size: 14px; resize: vertical; min-height: 100px;
             transition: border-color 0.3s;
         }
-        
+
         .modal-textarea:focus { outline: none; border-color: var(--etec-primary); }
         .modal-form-group { margin-bottom: 15px; }
-        
+
         .modal-form-group label {
             display: block; margin-bottom: 5px;
             font-weight: 600; color: var(--text-main); font-size: 14px;
@@ -388,40 +388,40 @@
             margin-bottom: 20px; page-break-after: always;
             position: relative; min-height: 600px;
         }
-        
+
         .cover-domain {
             display: flex; align-items: center; justify-content: center;
             height: 100vh; text-align: center; background: var(--etec-primary);
             color: white; padding: 40px;
         }
-        
+
         .cover-domain h1 { font-size: 48px; font-weight: 800; }
-        
+
         .cover-indicator {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             height: 100vh; text-align: center; background: #fafafa;
             border: 8px solid var(--etec-primary); padding: 40px;
         }
-        
+
         .cover-indicator h2 { font-size: 32px; color: var(--etec-secondary); margin-bottom: 20px; }
         .cover-indicator h3 { font-size: 24px; color: var(--etec-blue); }
-        
+
         .activity-title {
             text-align: center; font-size: 22px; font-weight: 700;
             color: var(--etec-primary); margin-bottom: 20px;
             border-bottom: 2px solid var(--etec-pink); padding-bottom: 10px;
         }
-        
+
         .activity-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
-        
+
         .activity-table th, .activity-table td {
             border: 1px solid var(--border-color); padding: 10px;
             line-height: 1.8; vertical-align: top;
         }
-        
+
         .activity-table th { background-color: #f4f5f8; width: 30%; font-weight: 600; }
         .activity-table td { width: 70%; }
-        
+
         .images-grid-1 { display: flex; justify-content: center; align-items: center; margin-top: 15px; }
         .images-grid-1 .media-image { width: 40%; max-width: 300px; }
         .images-grid-2, .images-grid-3, .images-grid-4 {
@@ -429,25 +429,25 @@
             gap: 15px; margin-top: 15px;
         }
         .images-grid-3 .media-image:nth-child(3) { grid-column: 1 / -1; justify-self: center; width: 40%; max-width: 300px; }
-        
+
         .media-image img {
             width: 100%; height: 180px; object-fit: cover;
             border-radius: 8px; border: 1px solid var(--border-color);
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
-        
+
         .principal-signature {
             position: absolute; bottom: 15px; left: 40px;
             font-weight: 700; font-size: 15px; text-align: left;
         }
-        
+
         .pdf-pages-container { margin-top: 0; padding: 0; background: #fff; position: relative; }
-        
+
         .pdf-pages-container canvas {
             max-width: 100%; height: auto; margin: 0 auto;
             display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        
+
         .selection-tree { margin-top: 15px; }
         .domain-selection { margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; background: #fafafa; }
         .domain-selection-header { display: flex; align-items: center; cursor: pointer; }
@@ -535,17 +535,17 @@
     </div>
 
     <script>
-        // ============ تهيئة Firebase ============
+        // ============ تهيئة Firebase (تم التحديث بالمعلومات الجديدة) ============
         const firebaseConfig = {
-            apiKey: "AIzaSyCgD-DOO2dl5eu-Jcgpi7bSBGVh1sFBND8",
-            authDomain: "school-accreditation.firebaseapp.com",
-            projectId: "school-accreditation",
-            storageBucket: "school-accreditation.firebasestorage.app",
-            messagingSenderId: "400249555677",
-            appId: "1:400249555677:web:b3869aaaf5c16e18ed2934",
-            measurementId: "G-PV6X8PRJLR"
+            apiKey: "AIzaSyBKp4BDgtzJoJySkP80ldVy0Pz1UULXXH8",
+            authDomain: "school-accreditation-3a390.firebaseapp.com",
+            projectId: "school-accreditation-3a390",
+            storageBucket: "school-accreditation-3a390.firebasestorage.app",
+            messagingSenderId: "469141255596",
+            appId: "1:469141255596:web:47a1840bfe67a4a2a7f609",
+            measurementId: "G-6DJ58KHEJE"
         };
-        
+
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -737,7 +737,7 @@
             if (message) bodyContent += `<div class="modal-message">${message}</div>`;
             if (input) bodyContent += `<input type="text" id="modalInputField" class="modal-input" placeholder="${input.placeholder || ''}" value="${input.value || ''}">`;
             if (textarea) bodyContent += `<textarea id="modalTextareaField" class="modal-textarea" placeholder="${textarea.placeholder || ''}">${textarea.value || ''}</textarea>`;
-            
+
             const modalHtml = `
                 <div class="modal-overlay" id="customModal">
                     <div class="modal-content">
@@ -765,9 +765,9 @@
             if (input) setTimeout(() => { const f = document.getElementById('modalInputField'); if (f) f.focus(); }, 100);
             if (textarea) setTimeout(() => { const f = document.getElementById('modalTextareaField'); if (f) f.focus(); }, 100);
         }
-        
+
         function closeCustomModal() { const m = document.getElementById('customModal'); if (m) m.remove(); }
-        
+
         function confirmCustomModal() {
             const callbacks = window._modalCallbacks || {};
             let inputValue = null, textareaValue = null;
@@ -778,7 +778,7 @@
             closeCustomModal();
             if (callbacks.onConfirm) callbacks.onConfirm(inputValue, textareaValue);
         }
-        
+
         function cancelCustomModal() { const callbacks = window._modalCallbacks || {}; closeCustomModal(); if (callbacks.onCancel) callbacks.onCancel(); }
         function showSuccessModal(title, message, onConfirm = null) { showCustomModal({ type: 'success', title, message, icon: 'fa-check-circle', confirmText: 'موافق', showCancel: false, onConfirm }); }
         function showErrorModal(title, message, onConfirm = null) { showCustomModal({ type: 'danger', title, message, icon: 'fa-exclamation-triangle', confirmText: 'موافق', showCancel: false, onConfirm }); }
@@ -822,9 +822,9 @@
             document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeAddUserModal(); });
             setTimeout(() => { const f = document.getElementById('addUserName'); if (f) f.focus(); }, 100);
         }
-        
+
         function closeAddUserModal() { const m = document.getElementById('addUserModal'); if (m) m.remove(); }
-        
+
         function confirmAddUser() {
             const name = document.getElementById('addUserName').value.trim();
             const username = document.getElementById('addUsername').value.trim();
@@ -862,7 +862,7 @@
         function updateEvidenceStatus(evidence) { evidence.status = getEvidenceFinalStatus(evidence); }
         function canUserApprove(evidence) { if (currentUser.role === 'leader') return evidence.userId !== currentUser.id; if (currentUser.role === 'internal_committee') return evidence.userId !== currentUser.id; return false; }
         function getUserApprovalStatus(evidence, userId) { if (!evidence.approvals) return 'waiting'; const approval = evidence.approvals.find(a => a.userId === userId); return approval ? approval.status : 'waiting'; }
-        
+
         async function approveEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
@@ -874,18 +874,18 @@
             await updateEvidenceInDb(evidence);
             showSuccessModal('تم الاعتماد', 'تم اعتماد الشاهد بنجاح', () => showEvidenceApproval());
         }
-        
+
         async function rejectEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
             if (!canUserApprove(evidence)) { showErrorModal('خطأ', 'لا يمكنك رفض هذا الشاهد'); return; }
             showRejectModal(evidence);
         }
-        
+
         function showRejectModal(evidence) {
             showTextareaModal('سبب رفض الشاهد', `الشاهد: ${evidence.title}`, 'اكتب سبب الرفض هنا...', '', (inputValue, textareaValue) => confirmReject(evidence.id, textareaValue), () => {});
         }
-        
+
         async function confirmReject(evidenceId, reason) {
             if (!reason || !reason.trim()) { showErrorModal('خطأ', 'الرجاء كتابة سبب الرفض'); return; }
             const evidence = evidences.find(e => e.id === evidenceId);
@@ -904,32 +904,32 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const user = users.find(u => u.username === username && u.password === password);
-            if (user) { 
-                currentUser = user; 
-                await showMainApp(); 
+            if (user) {
+                currentUser = user;
+                await showMainApp();
             }
             else showErrorModal('خطأ في تسجيل الدخول', 'بيانات الدخول غير صحيحة');
         }
-        
+
         async function showMainApp() {
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             document.getElementById('userTypeLabelSidebar').textContent = currentUser.roleLabel;
             document.getElementById('headerUserName').textContent = `مرحباً، ${currentUser.name}`;
             document.getElementById('headerUserRole').textContent = currentUser.roleLabel;
-            
+
             await loadEvidencesFromDb();
             buildSidebar();
             showDashboard();
         }
-        
+
         function logout() {
             currentUser = null;
             document.getElementById('loginPage').style.display = 'flex';
             document.getElementById('mainApp').style.display = 'none';
             document.getElementById('loginForm').reset();
         }
-        
+
         function buildSidebar() {
             const sidebarMenu = document.getElementById('sidebarMenu');
             sidebarMenu.innerHTML = '';
@@ -962,7 +962,7 @@
             logoutItem.onclick = logout;
             sidebarMenu.appendChild(logoutItem);
         }
-        
+
         function showDashboard() {
             const contentArea = document.getElementById('contentArea');
             const approvedCount = evidences.filter(e => e.status === 'approved').length;
@@ -981,7 +981,7 @@
                 </div>
             `;
         }
-        
+
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
             const contentArea = document.getElementById('contentArea');
@@ -1007,7 +1007,7 @@
                 </div>
             `;
         }
-        
+
         function editUser(id) {
             const user = users.find(u => u.id === id);
             if (!user) return;
@@ -1028,7 +1028,7 @@
                 }
             });
         }
-        
+
         function deleteUser(id) {
             const user = users.find(u => u.id === id);
             if (!user) return;
@@ -1058,7 +1058,7 @@
             contentArea.innerHTML = buttonsHtml;
             showPreviousEvidences();
         }
-        
+
         function showAddEvidenceForm() {
             const availableUsers = users.filter(u => u.role !== 'external_committee');
             document.getElementById('evidenceContent').innerHTML = `
@@ -1092,7 +1092,7 @@
                 </div>
             `;
         }
-        
+
         function updateStandards() {
             const dId = parseInt(document.getElementById('domainSelect').value);
             const d = domains.find(x => x.id === dId);
@@ -1100,7 +1100,7 @@
             stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}">${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
             updateIndicators();
         }
-        
+
         function updateIndicators() {
             const dId = parseInt(document.getElementById('domainSelect').value);
             const sId = document.getElementById('standardSelect').value;
@@ -1109,27 +1109,27 @@
             const indSelect = document.getElementById('indicatorSelect');
             indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}">${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
         }
-        
+
         async function submitEvidence(e) {
             e.preventDefault();
             const evidenceId = Date.now().toString();
-            
+
             const images = [];
             const filesInput = document.getElementById('evImages').files;
             for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
                 const url = await uploadImageToStorage(filesInput[i], evidenceId);
                 if (url) images.push(url);
             }
-            
+
             const pdfInput = document.getElementById('evPdf').files[0];
             let pdfUrl = null;
             if (pdfInput) pdfUrl = await uploadPdfToStorage(pdfInput, evidenceId);
-            
+
             const implementersSelect = document.getElementById('evImplementers');
             const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
             if (!selectedImplementerIds.includes(currentUser.id)) selectedImplementerIds.push(currentUser.id);
             const implementers = selectedImplementerIds.map(id => { const user = users.find(u => u.id === id); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
-            
+
             const newEvidence = {
                 id: evidenceId,
                 domainId: parseInt(document.getElementById('domainSelect').value),
@@ -1148,7 +1148,7 @@
                 status: currentUser.role === 'leader' ? 'approved' : 'pending',
                 approvals: []
             };
-            
+
             const saved = await saveEvidenceToDb(newEvidence);
             if (saved) {
                 evidences.push(newEvidence);
@@ -1158,23 +1158,23 @@
                 showErrorModal('خطأ', 'فشل في حفظ الشاهد');
             }
         }
-        
+
         function showPreviousEvidences() {
             const container = document.getElementById('evidenceContent');
             if(!container) return;
             if(evidences.length === 0) { container.innerHTML = `<div class="etec-card" style="text-align: center; color: var(--text-muted);"><p>لا توجد شواهد مسجلة حتى الآن.</p></div>`; return; }
-            
+
             const userEvidences = currentUser.role === 'leader' ? evidences : evidences.filter(e => {
                 if (e.userId === currentUser.id) return true;
                 if (e.implementers && e.implementers.some(imp => imp.userId === currentUser.id)) return true;
                 return false;
             });
-            
+
             const printableEvidences = userEvidences.filter(e => e.status === 'approved' || e.status === 'pending');
             if (userEvidences.length === 0) { container.innerHTML = `<div class="etec-card" style="text-align: center; color: var(--text-muted);"><p>لا توجد شواهد مسجلة من قبلك.</p></div>`; return; }
-            
+
             const canPrint = currentUser.role !== 'external_committee';
-            
+
             container.innerHTML = `
                 <div class="etec-card">
                     <div class="etec-card-header">
@@ -1228,7 +1228,7 @@
                 </div>
             `;
         }
-        
+
         function selectAllPrintableEvidences() { document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = true); updatePrintButton(); updateMasterCheckbox(); }
         function deselectAllPrintableEvidences() { document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = false); updatePrintButton(); updateMasterCheckbox(); }
         function toggleAllPrintCheckboxes() { const master = document.getElementById('printAllCheckbox'); document.querySelectorAll('.print-evidence-checkbox').forEach(cb => cb.checked = master.checked); updatePrintButton(); }
@@ -1249,7 +1249,7 @@
             else if (checkedCount === checkboxes.length) { master.checked = true; master.indeterminate = false; }
             else { master.checked = false; master.indeterminate = true; }
         }
-        
+
         function showEvidenceApproval() {
             if (currentUser.role !== 'leader' && currentUser.role !== 'internal_committee') return;
             const container = document.getElementById('evidenceContent');
@@ -1283,7 +1283,7 @@
                 </div>
             `;
         }
-        
+
         function viewEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
@@ -1296,7 +1296,7 @@
             else { statusBadge = 'badge-status-pending'; statusLabel = 'قيد الاعتماد'; }
             const canPrint = currentUser.role !== 'external_committee' && (evidence.status === 'approved' || evidence.status === 'pending');
             const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
-            
+
             let html = `
                 <div class="etec-card">
                     <div class="etec-card-header">
@@ -1337,7 +1337,7 @@
             document.getElementById('evidenceContent').innerHTML = html;
             if (evidence.pdf) renderPdfToCanvas(evidence.id, evidence.pdf, `viewPdfContainer_${evidence.id}`);
         }
-        
+
         async function deleteEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
@@ -1352,7 +1352,7 @@
                 }
             });
         }
-        
+
         function editEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
@@ -1360,7 +1360,7 @@
             if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
             const availableUsers = users.filter(u => u.role !== 'external_committee');
             const currentImplementerIds = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userId) : [evidence.userId];
-            
+
             document.getElementById('evidenceContent').innerHTML = `
                 <div class="etec-card">
                     <div class="etec-card-header"><div class="etec-card-title">تعديل الشاهد</div></div>
@@ -1394,7 +1394,7 @@
             updateEditStandards(evidence.standardId);
             updateEditIndicators(evidence.indicatorId);
         }
-        
+
         function updateEditStandards(selectedStandardId = null) {
             const dId = parseInt(document.getElementById('editDomainSelect').value);
             const d = domains.find(x => x.id === dId);
@@ -1402,7 +1402,7 @@
             stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}" ${s.id === selectedStandardId ? 'selected' : ''}>${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
             updateEditIndicators();
         }
-        
+
         function updateEditIndicators(selectedIndicatorId = null) {
             const dId = parseInt(document.getElementById('editDomainSelect').value);
             const sId = document.getElementById('editStandardSelect').value;
@@ -1411,14 +1411,14 @@
             const indSelect = document.getElementById('editIndicatorSelect');
             indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}" ${i.id === selectedIndicatorId ? 'selected' : ''}>${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
         }
-        
+
         async function updateEvidence(e, id) {
             e.preventDefault();
             const evidence = evidences.find(ev => ev.id === id);
             if (!evidence) return;
             const canEdit = evidence.userId === currentUser.id || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
             if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
-            
+
             const images = evidence.images || [];
             const filesInput = document.getElementById('editEvImages').files;
             for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
@@ -1428,12 +1428,12 @@
             const pdfInput = document.getElementById('editEvPdf').files[0];
             let pdfUrl = evidence.pdf;
             if (pdfInput) pdfUrl = await uploadPdfToStorage(pdfInput, id);
-            
+
             const implementersSelect = document.getElementById('editEvImplementers');
             const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
             if (!selectedImplementerIds.includes(evidence.userId)) selectedImplementerIds.push(evidence.userId);
             const implementers = selectedImplementerIds.map(uid => { const user = users.find(u => u.id === uid); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
-            
+
             evidence.domainId = parseInt(document.getElementById('editDomainSelect').value);
             evidence.standardId = document.getElementById('editStandardSelect').value;
             evidence.indicatorId = document.getElementById('editIndicatorSelect').value;
@@ -1446,12 +1446,12 @@
             evidence.pdf = pdfUrl;
             evidence.approvals = [];
             evidence.status = currentUser.role === 'leader' ? 'approved' : 'pending';
-            
+
             const updated = await updateEvidenceInDb(evidence);
             if (updated) showSuccessModal('تم التحديث', 'تم تحديث الشاهد. سيحتاج إلى اعتماد جديد', () => showPreviousEvidences());
             else showErrorModal('خطأ', 'فشل في تحديث الشاهد');
         }
-        
+
         function getImagesGridHtml(images) {
             if (!images || images.length === 0) return '';
             const gridClass = `images-grid-${images.length}`;
@@ -1460,7 +1460,7 @@
             html += '</div>';
             return html;
         }
-        
+
         async function renderPdfToCanvas(evidenceId, pdfData, containerId) {
             try {
                 const container = document.getElementById(containerId);
@@ -1500,7 +1500,7 @@
             const standard = domain?.standards.find(s => s.id === evidence.standardId);
             const indicator = standard?.indicators.find(i => i.id === evidence.indicatorId);
             const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
-            
+
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
                 <title>طباعة شاهد - ${evidence.title}</title>
@@ -1571,16 +1571,16 @@
                 showErrorModal('تنبيه', 'برجاء اختيار شاهد واحد على الأقل للطباعة');
                 return;
             }
-            
+
             const selectedIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-evidence-id'));
             const selectedEvidences = evidences.filter(e => selectedIds.includes(e.id));
-            
+
             const printWindow = window.open('', '_blank', 'width=900,height=700');
             if (!printWindow) {
                 showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة');
                 return;
             }
-            
+
             let htmlContent = `
                 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
                 <title>طباعة الشواهد المختارة</title>
