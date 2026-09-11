@@ -646,7 +646,7 @@ Gc8xgS2Nmz9bbiiRgVhZag==
         }
 
         // ============================================================
-        // 4. رفع الملفات إلى Google Drive
+        // 4. رفع الملفات إلى Google Drive (مع supportsAllDrives)
         // ============================================================
         async function uploadToGoogleDrive(file, evidenceId, fileType) {
             try {
@@ -662,7 +662,8 @@ Gc8xgS2Nmz9bbiiRgVhZag==
                 form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
                 form.append('file', file);
                 
-                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webContentLink,webViewLink,size', {
+                // ✅ إضافة supportsAllDrives=true لحل مشكلة storageQuotaExceeded
+                const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webContentLink,webViewLink,size', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${accessToken}` },
                     body: form,
@@ -2172,7 +2173,7 @@ Gc8xgS2Nmz9bbiiRgVhZag==
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 نظام منصة الاعتماد المدرسي جاهز للعمل');
             console.log('📁 سيتم تخزين الملفات في Google Drive (Service Account)');
-            console.log('✅ جميع القيم تم إعدادها بنجاح');
+            console.log('✅ تم إضافة supportsAllDrives=true لحل مشكلة storageQuotaExceeded');
         });
     </script>
 </body>
