@@ -12,7 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
-    <!-- Google APIs (لـ GAPI Client) -->
+    <!-- Google APIs -->
     <script src="https://apis.google.com/js/api.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -384,47 +384,6 @@
 
         .print-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--etec-primary); }
 
-        .report-page {
-            background: #fff; padding: 40px; padding-bottom: 80px;
-            border-radius: 12px; border: 1px solid var(--border-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            margin-bottom: 20px; page-break-after: always;
-            position: relative; min-height: 600px;
-        }
-
-        .cover-domain {
-            display: flex; align-items: center; justify-content: center;
-            height: 100vh; text-align: center; background: var(--etec-primary);
-            color: white; padding: 40px;
-        }
-
-        .cover-domain h1 { font-size: 48px; font-weight: 800; }
-
-        .cover-indicator {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; text-align: center; background: #fafafa;
-            border: 8px solid var(--etec-primary); padding: 40px;
-        }
-
-        .cover-indicator h2 { font-size: 32px; color: var(--etec-secondary); margin-bottom: 20px; }
-        .cover-indicator h3 { font-size: 24px; color: var(--etec-blue); }
-
-        .activity-title {
-            text-align: center; font-size: 22px; font-weight: 700;
-            color: var(--etec-primary); margin-bottom: 20px;
-            border-bottom: 2px solid var(--etec-pink); padding-bottom: 10px;
-        }
-
-        .activity-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; }
-
-        .activity-table th, .activity-table td {
-            border: 1px solid var(--border-color); padding: 10px;
-            line-height: 1.8; vertical-align: top;
-        }
-
-        .activity-table th { background-color: #f4f5f8; width: 30%; font-weight: 600; }
-        .activity-table td { width: 70%; }
-
         .images-grid-1 { display: flex; justify-content: center; align-items: center; margin-top: 15px; }
         .images-grid-1 .media-image { width: 40%; max-width: 300px; }
         .images-grid-2, .images-grid-3, .images-grid-4 {
@@ -439,11 +398,6 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
-        .principal-signature {
-            position: absolute; bottom: 15px; left: 40px;
-            font-weight: 700; font-size: 15px; text-align: left;
-        }
-
         .pdf-pages-container { margin-top: 0; padding: 0; background: #fff; position: relative; }
 
         .pdf-pages-container canvas {
@@ -451,34 +405,11 @@
             display: block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .selection-tree { margin-top: 15px; }
-        .domain-selection { margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; background: #fafafa; }
-        .domain-selection-header { display: flex; align-items: center; cursor: pointer; }
-        .standard-selection { margin: 10px 25px 10px 0; padding: 10px; border-right: 3px solid var(--border-color); }
-        .standard-selection-header { display: flex; align-items: center; cursor: pointer; font-weight: 600; }
-        .indicator-selection { margin: 5px 45px 5px 0; display: flex; align-items: center; }
-
         @media print {
             body { background: white; color: #000; }
             .sidebar, .content-header, .no-print, .top-header { display: none !important; }
             .main-content { margin-right: 0 !important; padding: 0 !important; }
             .content-body { padding: 0 !important; }
-            .report-page {
-                border: none; border-radius: 0; box-shadow: none;
-                padding: 20px; padding-bottom: 70px;
-                width: 100%; margin: 0; page-break-after: always;
-                position: relative; min-height: 600px;
-            }
-            .report-page:last-child { page-break-after: auto; margin-bottom: 0; padding-bottom: 20px; }
-            .cover-domain { background: #3A2375 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px; }
-            .cover-indicator { background: #fafafa !important; border: 8px solid #3A2375 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px; }
-            .activity-report { page-break-inside: avoid; }
-            .pdf-pages-container canvas { page-break-after: always; page-break-inside: avoid; }
-            .pdf-pages-container canvas:last-child { page-break-after: auto; }
-            .media-image img { height: 140px; }
-            .principal-signature { position: absolute; bottom: 10px; left: 30px; font-size: 14px; }
-            .etec-table th { background-color: var(--etec-primary) !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .badge-level, .badge-status-approved, .badge-status-pending, .badge-status-rejected { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
 
         .loading-spinner {
@@ -585,10 +516,28 @@
         // ============================================================
         // 2. GOOGLE DRIVE CONFIG (Service Account)
         // ============================================================
-        // 🔴 استبدل هذه القيم بالمعلومات من ملف JSON الخاص بـ Service Account
-        const SERVICE_ACCOUNT_EMAIL = 'YOUR_SERVICE_ACCOUNT_EMAIL'; // من ملف JSON: client_email
-        const PRIVATE_KEY = 'YOUR_PRIVATE_KEY'; // من ملف JSON: private_key (انسخ المفتاح كاملاً مع \n)
-        const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID'; // معرف مجلد Drive
+        // ⚠️⚠️⚠️ استبدل القيم الثلاث التالية بالقيم الحقيقية من ملف JSON ⚠️⚠️⚠️
+        // ============================================================
+        
+        // 1️⃣ البريد الإلكتروني للـ Service Account (من ملف JSON: client_email)
+        const SERVICE_ACCOUNT_EMAIL = 'drive-uploader@school-accreditation-3a390.iam.gserviceaccount.com';
+        
+        // 2️⃣ المفتاح الخاص (من ملف JSON: private_key) - انسخه بالكامل
+        const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj
+MzEfYyjiWA4R4/M2bS1GB4t7NXp98C3SC6dVMvDuictGeurT8jNbvJZHtCSuYEvu
+NMoSfm76oqFvAp8Gy0iz5sxjZmSnXyCdPEovGhLa0VzMaQ8s+CLOyS56YyCFGeJZ
+qgtzJ6GR3eqoYSW9b9UMvkBpZODSctWSNGj3P7jRFDO5VoTwCQAWbFnOjDfH5Ulg
+p2PKSQnSJP3AJLQNFNe7br1XbrhV//eO+t51mIpGSDCUv3E0DDFcWDTH9cXDTTlR
+ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
+-----END PRIVATE KEY-----`;
+        
+        // 3️⃣ معرف مجلد Google Drive (من رابط المجلد)
+        const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID';
+        
+        // ============================================================
+        // ⚠️⚠️⚠️ نهاية القيم التي يجب استبدالها ⚠️⚠️⚠️
+        // ============================================================
 
         // ============================================================
         // 3. JWT Token Generation
@@ -602,27 +551,23 @@
 
         function importPrivateKey(pem) {
             try {
-                // التأكد من أن pem هو نص
                 if (typeof pem !== 'string') {
                     throw new Error('المفتاح الخاص يجب أن يكون نصاً');
                 }
                 
-                // تنظيف المفتاح
                 let pemContents = pem.trim();
                 
                 // إزالة علامات PEM إذا كانت موجودة
                 pemContents = pemContents
                     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
                     .replace(/-----END PRIVATE KEY-----/g, '')
-                    .replace(/\\n/g, '')  // إزالة \n الحرفية
-                    .replace(/\s/g, '');   // إزالة جميع المسافات والأسطر
+                    .replace(/\\n/g, '')
+                    .replace(/\s/g, '');
                     
-                // التحقق من أن المفتاح ليس فارغاً
                 if (!pemContents || pemContents.length < 100) {
-                    throw new Error('المفتاح الخاص فارغ أو غير صالح. تأكد من نسخه بشكل صحيح');
+                    throw new Error('المفتاح الخاص فارغ أو غير صالح. تأكد من نسخه بشكل صحيح من ملف JSON');
                 }
                 
-                // فك تشفير Base64
                 let binaryDer;
                 try {
                     binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
@@ -644,11 +589,7 @@
         }
 
         async function generateJWT() {
-            const header = {
-                alg: 'RS256',
-                typ: 'JWT'
-            };
-            
+            const header = { alg: 'RS256', typ: 'JWT' };
             const now = Math.floor(Date.now() / 1000);
             const payload = {
                 iss: SERVICE_ACCOUNT_EMAIL,
@@ -658,15 +599,12 @@
                 iat: now
             };
 
-            // ترميز header و payload
             const encodedHeader = base64UrlEncode(JSON.stringify(header));
             const encodedPayload = base64UrlEncode(JSON.stringify(payload));
             const signatureInput = encodedHeader + '.' + encodedPayload;
 
-            // استيراد المفتاح
             const privateKey = await importPrivateKey(PRIVATE_KEY);
             
-            // التوقيع
             const signature = await crypto.subtle.sign(
                 { name: 'RSASSA-PKCS1-v1_5' },
                 privateKey,
@@ -682,9 +620,7 @@
             
             const response = await fetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
                     grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
                     assertion: jwt
@@ -701,7 +637,7 @@
         }
 
         // ============================================================
-        // 4. رفع الملفات إلى Google Drive باستخدام Service Account
+        // 4. رفع الملفات إلى Google Drive
         // ============================================================
         async function uploadToGoogleDrive(file, evidenceId, fileType) {
             try {
@@ -719,9 +655,7 @@
                 
                 const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webContentLink,webViewLink,size', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                    },
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
                     body: form,
                 });
                 
@@ -733,13 +667,9 @@
                 const data = await response.json();
                 
                 let fileUrl = null;
-                if (data.webContentLink) {
-                    fileUrl = data.webContentLink;
-                } else if (data.webViewLink) {
-                    fileUrl = data.webViewLink;
-                } else {
-                    fileUrl = `https://drive.google.com/uc?export=view&id=${data.id}`;
-                }
+                if (data.webContentLink) fileUrl = data.webContentLink;
+                else if (data.webViewLink) fileUrl = data.webViewLink;
+                else fileUrl = `https://drive.google.com/uc?export=view&id=${data.id}`;
                 
                 console.log(`✅ File uploaded to Google Drive: ${file.name}`);
                 return {
@@ -753,15 +683,12 @@
                 
             } catch (error) {
                 console.error('❌ Error uploading to Google Drive:', error);
-                return {
-                    success: false,
-                    error: error.message
-                };
+                return { success: false, error: error.message };
             }
         }
 
         // ============================================================
-        // 5. دوال مساعدة (للعرض)
+        // 5. دوال مساعدة
         // ============================================================
         function getDriveDirectImageUrl(url) {
             if (!url) return url;
@@ -2090,10 +2017,6 @@
                     .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px; }
                     .images-grid img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; border: 1px solid #E2E8F0; }
                     .signature { margin-top: 25px; text-align: left; font-weight: 700; font-size: 14px; }
-                    @media print {
-                        body { padding: 0; }
-                        .evidence-print-page { border: 1px solid #3A2375; margin-bottom: 0; }
-                    }
                 </style>
                 </head>
                 <body>
@@ -2246,7 +2169,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 نظام منصة الاعتماد المدرسي جاهز للعمل');
             console.log('📁 سيتم تخزين الملفات في Google Drive (Service Account)');
-            console.log('🔑 تأكد من تحديث قيم SERVICE_ACCOUNT_EMAIL, PRIVATE_KEY, DRIVE_FOLDER_ID');
+            console.log('⚠️ تأكد من استبدال القيم: SERVICE_ACCOUNT_EMAIL, PRIVATE_KEY, DRIVE_FOLDER_ID');
         });
     </script>
 </body>
