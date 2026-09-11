@@ -514,30 +514,40 @@
         const db = firebase.firestore();
 
         // ============================================================
-        // 2. GOOGLE DRIVE CONFIG (Service Account)
+        // 2. GOOGLE DRIVE CONFIG (Service Account) - القيم الحقيقية
         // ============================================================
-        // ⚠️⚠️⚠️ استبدل القيم الثلاث التالية بالقيم الحقيقية من ملف JSON ⚠️⚠️⚠️
-        // ============================================================
-        
-        // 1️⃣ البريد الإلكتروني للـ Service Account (من ملف JSON: client_email)
         const SERVICE_ACCOUNT_EMAIL = 'drive-uploader@school-accreditation-3a390.iam.gserviceaccount.com';
         
-        // 2️⃣ المفتاح الخاص (من ملف JSON: private_key) - انسخه بالكامل
         const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-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
+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
+Gc8xgS2Nmz9bbiiRgVhZag==
 -----END PRIVATE KEY-----`;
-        
-        // 3️⃣ معرف مجلد Google Drive (من رابط المجلد)
-        const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID';
-        
-        // ============================================================
-        // ⚠️⚠️⚠️ نهاية القيم التي يجب استبدالها ⚠️⚠️⚠️
-        // ============================================================
+
+        const DRIVE_FOLDER_ID = '1NZb4b8tHInS7_eXLv10l_zU2tQdyhwbP';
 
         // ============================================================
         // 3. JWT Token Generation
@@ -557,7 +567,6 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
                 
                 let pemContents = pem.trim();
                 
-                // إزالة علامات PEM إذا كانت موجودة
                 pemContents = pemContents
                     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
                     .replace(/-----END PRIVATE KEY-----/g, '')
@@ -565,14 +574,14 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
                     .replace(/\s/g, '');
                     
                 if (!pemContents || pemContents.length < 100) {
-                    throw new Error('المفتاح الخاص فارغ أو غير صالح. تأكد من نسخه بشكل صحيح من ملف JSON');
+                    throw new Error('المفتاح الخاص فارغ أو غير صالح');
                 }
                 
                 let binaryDer;
                 try {
                     binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
                 } catch (e) {
-                    throw new Error('فشل فك تشفير المفتاح. تأكد من أن المفتاح بصيغة Base64 صحيحة');
+                    throw new Error('فشل فك تشفير المفتاح');
                 }
                 
                 return crypto.subtle.importKey(
@@ -865,13 +874,10 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
             }
         }
 
-        // ============================================================
-        // 8. PDF.JS WORKER
-        // ============================================================
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // ============================================================
-        // 9. DOMAINS & USERS DATA
+        // 8. DOMAINS & USERS DATA
         // ============================================================
         const domains = [
             {
@@ -978,7 +984,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         let currentUser = null;
 
         // ============================================================
-        // 10. FIREBASE CRUD FUNCTIONS
+        // 9. FIREBASE CRUD FUNCTIONS
         // ============================================================
         async function loadEvidencesFromDb() {
             try {
@@ -1026,7 +1032,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 11. MODAL SYSTEM
+        // 10. MODAL SYSTEM
         // ============================================================
         function showCustomModal({ type = 'info', title = '', message = '', icon = 'fa-info-circle', confirmText = 'موافق', cancelText = 'إلغاء', showCancel = false, onConfirm = null, onCancel = null, input = null, textarea = null }) {
             const iconMap = { 'success': 'fa-check-circle', 'danger': 'fa-exclamation-triangle', 'warning': 'fa-exclamation-circle', 'info': 'fa-info-circle', 'primary': 'fa-bell' };
@@ -1084,7 +1090,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         function showTextareaModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'danger', title, message, icon: 'fa-comment-alt', confirmText: 'تأكيد الرفض', cancelText: 'إلغاء', showCancel: true, textarea: { placeholder, value }, onConfirm, onCancel }); }
 
         // ============================================================
-        // 12. USER MANAGEMENT
+        // 11. USER MANAGEMENT
         // ============================================================
         function showAddUserModal() {
             const modalHtml = `
@@ -1142,7 +1148,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 13. APPROVAL SYSTEM
+        // 12. APPROVAL SYSTEM
         // ============================================================
         function getRequiredApprovers(evidence) {
             const approvers = [];
@@ -1201,7 +1207,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 14. LOGIN & NAVIGATION
+        // 13. LOGIN & NAVIGATION
         // ============================================================
         async function handleLogin(event) {
             event.preventDefault();
@@ -1287,7 +1293,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 15. USER MANAGEMENT UI
+        // 14. USER MANAGEMENT UI
         // ============================================================
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
@@ -1350,7 +1356,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 16. EVIDENCE MANAGEMENT
+        // 15. EVIDENCE MANAGEMENT
         // ============================================================
         function showEvidenceManagement() {
             const contentArea = document.getElementById('contentArea');
@@ -1652,7 +1658,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 17. VIEW, EDIT, DELETE EVIDENCE
+        // 16. VIEW, EDIT, DELETE EVIDENCE
         // ============================================================
         function viewEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
@@ -1888,7 +1894,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 18. PRINT FUNCTIONS
+        // 17. PRINT FUNCTIONS
         // ============================================================
         function printSingleEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
@@ -1938,9 +1944,6 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
                     .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
                     .status-approved { background: #27AE60; }
                     .status-pending { background: #E77B26; }
-                    @media print {
-                        .no-print { display: none; }
-                    }
                 </style>
                 </head>
                 <body>
@@ -2073,7 +2076,7 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 19. REPORTS & BACKUP
+        // 18. REPORTS & BACKUP
         // ============================================================
         function showReports() {
             const contentArea = document.getElementById('contentArea');
@@ -2164,12 +2167,12 @@ ZVEiR2B6REkLp4s51z45d1nB6p5jL8c0vj9XK5lLzY+K7wLq6N2v
         }
 
         // ============================================================
-        // 20. SYSTEM INITIALIZATION
+        // 19. SYSTEM INITIALIZATION
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 نظام منصة الاعتماد المدرسي جاهز للعمل');
             console.log('📁 سيتم تخزين الملفات في Google Drive (Service Account)');
-            console.log('⚠️ تأكد من استبدال القيم: SERVICE_ACCOUNT_EMAIL, PRIVATE_KEY, DRIVE_FOLDER_ID');
+            console.log('✅ جميع القيم تم إعدادها بنجاح');
         });
     </script>
 </body>
