@@ -12,10 +12,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
+    <!-- Google APIs (لـ GAPI Client) -->
+    <script src="https://apis.google.com/js/api.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <style>
-        /* ===== جميع الأنماط السابقة ===== */
         :root {
             --etec-primary: #3A2375;
             --etec-primary-light: #523499;
@@ -581,7 +583,7 @@
         const db = firebase.firestore();
 
         // ============================================================
-        // 2. GOOGLE DRIVE CONFIG - Service Account Method
+        // 2. GOOGLE DRIVE CONFIG (Service Account)
         // ============================================================
         // 🔴 استبدل هذه القيم بالمعلومات من ملف JSON الخاص بـ Service Account
         const SERVICE_ACCOUNT_EMAIL = 'YOUR_SERVICE_ACCOUNT_EMAIL'; // من ملف JSON: client_email
@@ -589,7 +591,7 @@
         const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID'; // معرف مجلد Drive
 
         // ============================================================
-        // 3. JWT Token Generation (بدون مكتبات خارجية)
+        // 3. JWT Token Generation
         // ============================================================
         function base64UrlEncode(str) {
             return btoa(str)
@@ -598,11 +600,50 @@
                 .replace(/=+$/, '');
         }
 
-        function base64UrlDecode(str) {
-            return atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+        function importPrivateKey(pem) {
+            try {
+                // التأكد من أن pem هو نص
+                if (typeof pem !== 'string') {
+                    throw new Error('المفتاح الخاص يجب أن يكون نصاً');
+                }
+                
+                // تنظيف المفتاح
+                let pemContents = pem.trim();
+                
+                // إزالة علامات PEM إذا كانت موجودة
+                pemContents = pemContents
+                    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+                    .replace(/-----END PRIVATE KEY-----/g, '')
+                    .replace(/\\n/g, '')  // إزالة \n الحرفية
+                    .replace(/\s/g, '');   // إزالة جميع المسافات والأسطر
+                    
+                // التحقق من أن المفتاح ليس فارغاً
+                if (!pemContents || pemContents.length < 100) {
+                    throw new Error('المفتاح الخاص فارغ أو غير صالح. تأكد من نسخه بشكل صحيح');
+                }
+                
+                // فك تشفير Base64
+                let binaryDer;
+                try {
+                    binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+                } catch (e) {
+                    throw new Error('فشل فك تشفير المفتاح. تأكد من أن المفتاح بصيغة Base64 صحيحة');
+                }
+                
+                return crypto.subtle.importKey(
+                    'pkcs8',
+                    binaryDer.buffer,
+                    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+                    false,
+                    ['sign']
+                );
+            } catch (error) {
+                console.error('❌ خطأ في استيراد المفتاح:', error);
+                throw new Error('فشل استيراد المفتاح الخاص: ' + error.message);
+            }
         }
 
-        function generateJWT() {
+        async function generateJWT() {
             const header = {
                 alg: 'RS256',
                 typ: 'JWT'
@@ -617,40 +658,23 @@
                 iat: now
             };
 
+            // ترميز header و payload
             const encodedHeader = base64UrlEncode(JSON.stringify(header));
             const encodedPayload = base64UrlEncode(JSON.stringify(payload));
             const signatureInput = encodedHeader + '.' + encodedPayload;
 
-            // استخدام Web Crypto API للتوقيع
-            return importPrivateKey(PRIVATE_KEY).then(privateKey => {
-                return crypto.subtle.sign(
-                    { name: 'RSASSA-PKCS1-v1_5' },
-                    privateKey,
-                    new TextEncoder().encode(signatureInput)
-                ).then(signature => {
-                    const encodedSignature = base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)));
-                    return signatureInput + '.' + encodedSignature;
-                });
-            });
-        }
-
-        function importPrivateKey(pem) {
-            // تنظيف المفتاح من تنسيق PEM
-            const pemHeader = '-----BEGIN PRIVATE KEY-----';
-            const pemFooter = '-----END PRIVATE KEY-----';
-            let pemContents = pem;
-            if (pem.includes(pemHeader)) {
-                pemContents = pem.replace(pemHeader, '').replace(pemFooter, '').replace(/\s/g, '');
-            }
-            const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+            // استيراد المفتاح
+            const privateKey = await importPrivateKey(PRIVATE_KEY);
             
-            return crypto.subtle.importKey(
-                'pkcs8',
-                binaryDer.buffer,
-                { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-                false,
-                ['sign']
+            // التوقيع
+            const signature = await crypto.subtle.sign(
+                { name: 'RSASSA-PKCS1-v1_5' },
+                privateKey,
+                new TextEncoder().encode(signatureInput)
             );
+            
+            const encodedSignature = base64UrlEncode(String.fromCharCode(...new Uint8Array(signature)));
+            return signatureInput + '.' + encodedSignature;
         }
 
         async function getAccessToken() {
@@ -737,7 +761,7 @@
         }
 
         // ============================================================
-        // 5. دوال مساعدة (نفس الكود السابق)
+        // 5. دوال مساعدة (للعرض)
         // ============================================================
         function getDriveDirectImageUrl(url) {
             if (!url) return url;
