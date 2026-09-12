@@ -873,6 +873,7 @@
             setTimeout(() => { const f = document.getElementById('addUserName'); if (f) f.focus(); }, 100);
         }
         function closeAddUserModal() { const m = document.getElementById('addUserModal'); if (m) m.remove(); }
+
         async function confirmAddUser() {
             const name = document.getElementById('addUserName').value.trim();
             const username = document.getElementById('addUsername').value.trim();
@@ -887,7 +888,11 @@
                     await loadUsersFromAPI();
                     showSuccessModal('تمت الإضافة', `تم إضافة المستخدم "${name}" بنجاح`, () => showUserManagement());
                 } else {
-                    showErrorModal('خطأ', result.error || 'فشل الإضافة');
+                    let errorMsg = result.error || 'فشل الإضافة';
+                    if (errorMsg.includes('UNIQUE constraint failed') && errorMsg.includes('username')) {
+                        errorMsg = `اسم المستخدم "${username}" مستخدم مسبقاً. الرجاء اختيار اسم آخر.`;
+                    }
+                    showErrorModal('خطأ', errorMsg);
                 }
             } catch (error) { showErrorModal('خطأ', 'تعذر الاتصال بالخادم'); }
         }
@@ -938,6 +943,7 @@
             setTimeout(() => { const f = document.getElementById('editUserName'); if (f) f.focus(); }, 100);
         }
         function closeEditUserModal() { const m = document.getElementById('editUserModal'); if (m) m.remove(); }
+
         async function saveEditUser(id) {
             const user = users.find(u => u.id === id);
             if (!user) return;
@@ -956,7 +962,11 @@
                     await loadUsersFromAPI();
                     showSuccessModal('تم التعديل', `تم تحديث بيانات المستخدم "${name}" بنجاح`, () => showUserManagement());
                 } else {
-                    showErrorModal('خطأ', result.error || 'فشل التعديل');
+                    let errorMsg = result.error || 'فشل التعديل';
+                    if (errorMsg.includes('UNIQUE constraint failed') && errorMsg.includes('username')) {
+                        errorMsg = `اسم المستخدم "${username}" مستخدم مسبقاً. الرجاء اختيار اسم آخر.`;
+                    }
+                    showErrorModal('خطأ', errorMsg);
                 }
             } catch (error) { showErrorModal('خطأ', 'تعذر تحديث البيانات'); }
         }
@@ -2324,6 +2334,15 @@
             `;
         }
 
+        function exportBackup() {
+            const dataStr = JSON.stringify({ evidences, users, exportDate: new Date().toISOString() }, null, 2);
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr));
+            linkElement.setAttribute('download', `backup_${new Date().toISOString().split('T')[0]}.json`);
+            linkElement.click();
+            showSuccessModal('تم التصدير', 'تم تصدير البيانات بنجاح');
+        }
+
         async function importMergeBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -2342,10 +2361,7 @@
                             }
                             showPrintProgressModal('جاري استيراد ودمج البيانات...');
                             updatePrintProgress(0, 1);
-                            const result = await apiCall('/api/import-merge', {
-                                method: 'POST',
-                                body: { users: backupData.users, evidences: backupData.evidences }
-                            });
+                            const result = await apiCall('/api/import-merge', { method: 'POST', body: { users: backupData.users, evidences: backupData.evidences } });
                             updatePrintProgress(1, 1, 'اكتمل!');
                             setTimeout(() => hidePrintProgressModal(), 500);
                             if (result.success) {
@@ -2376,15 +2392,6 @@
                     reader.readAsText(file);
                 }
             );
-        }
-
-        function exportBackup() {
-            const dataStr = JSON.stringify({ evidences, users, exportDate: new Date().toISOString() }, null, 2);
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr));
-            linkElement.setAttribute('download', `backup_${new Date().toISOString().split('T')[0]}.json`);
-            linkElement.click();
-            showSuccessModal('تم التصدير', 'تم تصدير البيانات بنجاح');
         }
 
         // ====== Auto Refresh (كل 30 ثانية) ======
