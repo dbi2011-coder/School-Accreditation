@@ -392,7 +392,6 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // ====== API Configuration ======
         const API_BASE = 'https://school-accreditation.dbi2011.workers.dev';
 
         async function apiCall(endpoint, options = {}) {
@@ -408,7 +407,6 @@
             }
         }
 
-        // ====== Data ======
         const domains = [
             { id: 1, name: "مجال الإدارة المدرسية",
               standards: [
@@ -504,7 +502,6 @@
         let currentUser = null;
         let editingAppendixContext = null;
 
-        // ====== Load Data from API ======
         async function loadUsersFromAPI() {
             try {
                 const result = await apiCall('/api/users');
@@ -536,7 +533,6 @@
             } catch (error) { console.error('فشل تحميل الشواهد:', error); }
         }
 
-        // ====== Sidebar Toggle ======
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
@@ -555,9 +551,7 @@
             document.body.style.overflow = '';
         }
 
-        // ====== Helpers ======
         function chunkArray(arr, size) { const chunks = []; for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size)); return chunks; }
-        function generateUniqueId() { return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; }
         function getDateSortKey(dateStr) {
             if (!dateStr) return 999;
             if (dateStr === 'الفصل الدراسي الأول') return 1;
@@ -569,18 +563,14 @@
             const allImages = [];
             if (evidence.images && evidence.images.length > 0) evidence.images.forEach(img => allImages.push(img));
             if (evidence.appendices && evidence.appendices.length > 0) {
-                evidence.appendices.forEach(app => {
-                    if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(img));
-                });
+                evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(img)); });
             }
             return allImages;
         }
         function collectAppendixImagesOnly(evidence) {
             const allImages = [];
             if (evidence.appendices && evidence.appendices.length > 0) {
-                evidence.appendices.forEach(app => {
-                    if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(img));
-                });
+                evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(img)); });
             }
             return allImages;
         }
@@ -721,7 +711,6 @@
             }
         }
 
-        // ====== Modals ======
         function showCustomModal({ type = 'info', title = '', message = '', icon = 'fa-info-circle', confirmText = 'موافق', cancelText = 'إلغاء', showCancel = false, onConfirm = null, onCancel = null, input = null, textarea = null }) {
             const iconMap = { 'success': 'fa-check-circle', 'danger': 'fa-exclamation-triangle', 'warning': 'fa-exclamation-circle', 'info': 'fa-info-circle', 'primary': 'fa-bell' };
             const finalIcon = icon || iconMap[type] || 'fa-info-circle';
@@ -754,7 +743,6 @@
         function showInputModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'primary', title, message, icon: 'fa-edit', confirmText: 'حفظ', cancelText: 'إلغاء', showCancel: true, input: { placeholder, value }, onConfirm, onCancel }); }
         function showTextareaModal(title, message, placeholder, value, onConfirm, onCancel = null) { showCustomModal({ type: 'danger', title, message, icon: 'fa-comment-alt', confirmText: 'تأكيد الرفض', cancelText: 'إلغاء', showCancel: true, textarea: { placeholder, value }, onConfirm, onCancel }); }
 
-        // ====== Login ======
         async function handleLogin(event) {
             event.preventDefault();
             const username = document.getElementById('username').value.trim();
@@ -851,7 +839,6 @@
             `;
         }
 
-        // ====== User Management ======
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
             const contentArea = document.getElementById('contentArea');
@@ -903,20 +890,73 @@
             } catch (error) { showErrorModal('خطأ', 'تعذر الاتصال بالخادم'); }
         }
 
-        async function editUser(id) {
+        function editUser(id) {
             const user = users.find(u => u.id === id);
             if (!user) return;
-            showInputModal('تعديل اسم العضو', 'أدخل الاسم الجديد:', 'اسم العضو', user.name, async (newName) => {
-                if (!newName || !newName.trim()) return;
-                const roleLabels = { 'leader': 'مدير المدرسة', 'internal_committee': 'عضو فريق التقويم الداخلي', 'member': 'عضو', 'external_committee': 'عضو فريق التقييم الخارجي' };
-                try {
-                    const result = await apiCall(`/api/users/${id}`, { method: 'PUT', body: { name: newName.trim(), username: user.username, role: user.role, roleLabel: roleLabels[user.role] } });
-                    if (result.success) {
-                        await loadUsersFromAPI();
-                        showSuccessModal('تم التعديل', 'تم تحديث اسم المستخدم', () => showUserManagement());
-                    }
-                } catch (error) { showErrorModal('خطأ', 'تعذر تحديث البيانات'); }
-            });
+            const modalHtml = `
+                <div class="modal-overlay" id="editUserModal">
+                    <div class="modal-content" style="max-width: 550px;">
+                        <div class="modal-header primary">
+                            <div class="modal-icon"><i class="fas fa-user-edit"></i></div>
+                            <div class="modal-title">تعديل بيانات المستخدم</div>
+                            <button class="modal-close-btn" onclick="closeEditUserModal()"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="modal-form-group">
+                                <label>اسم العضو</label>
+                                <input type="text" id="editUserName" class="modal-input" value="${user.name}" required>
+                            </div>
+                            <div class="modal-form-group">
+                                <label>اسم المستخدم (username)</label>
+                                <input type="text" id="editUsername" class="modal-input" value="${user.username}" required>
+                            </div>
+                            <div class="modal-form-group">
+                                <label>كلمة المرور الجديدة (اتركها فارغة للإبقاء على الحالية)</label>
+                                <input type="password" id="editUserPassword" class="modal-input" placeholder="••••••••">
+                            </div>
+                            <div class="modal-form-group">
+                                <label>الصلاحية</label>
+                                <select id="editUserRole" class="modal-select" required>
+                                    <option value="leader" ${user.role === 'leader' ? 'selected' : ''}>مدير المدرسة</option>
+                                    <option value="internal_committee" ${user.role === 'internal_committee' ? 'selected' : ''}>عضو فريق التقويم الداخلي</option>
+                                    <option value="member" ${user.role === 'member' ? 'selected' : ''}>عضو</option>
+                                    <option value="external_committee" ${user.role === 'external_committee' ? 'selected' : ''}>عضو فريق التقييم الخارجي</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="modal-btn modal-btn-success" onclick="saveEditUser(${user.id})"><i class="fas fa-save"></i> حفظ التعديلات</button>
+                            <button class="modal-btn modal-btn-secondary" onclick="closeEditUserModal()"><i class="fas fa-times"></i> إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            document.getElementById('editUserModal').addEventListener('click', function(e) { if (e.target === this) closeEditUserModal(); });
+            setTimeout(() => { const f = document.getElementById('editUserName'); if (f) f.focus(); }, 100);
+        }
+        function closeEditUserModal() { const m = document.getElementById('editUserModal'); if (m) m.remove(); }
+        async function saveEditUser(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            const name = document.getElementById('editUserName').value.trim();
+            const username = document.getElementById('editUsername').value.trim();
+            const password = document.getElementById('editUserPassword').value.trim();
+            const role = document.getElementById('editUserRole').value;
+            if (!name || !username || !role) { showErrorModal('خطأ', 'الرجاء إكمال الحقول المطلوبة'); return; }
+            const roleLabels = { 'leader': 'مدير المدرسة', 'internal_committee': 'عضو فريق التقويم الداخلي', 'member': 'عضو', 'external_committee': 'عضو فريق التقييم الخارجي' };
+            const body = { name, username, role, roleLabel: roleLabels[role] };
+            if (password) body.password = password;
+            try {
+                const result = await apiCall(`/api/users/${id}`, { method: 'PUT', body });
+                if (result.success) {
+                    closeEditUserModal();
+                    await loadUsersFromAPI();
+                    showSuccessModal('تم التعديل', `تم تحديث بيانات المستخدم "${name}" بنجاح`, () => showUserManagement());
+                } else {
+                    showErrorModal('خطأ', result.error || 'فشل التعديل');
+                }
+            } catch (error) { showErrorModal('خطأ', 'تعذر تحديث البيانات'); }
         }
 
         async function deleteUser(id) {
@@ -937,7 +977,6 @@
             });
         }
 
-        // ====== Evidence Management ======
         function showEvidenceManagement() {
             const contentArea = document.getElementById('contentArea');
             let buttonsHtml = `
@@ -1037,7 +1076,6 @@
             `;
         }
 
-        // ====== Add Evidence Form ======
         function showAddEvidenceForm() {
             const availableUsers = users.filter(u => u.role !== 'external_committee');
             document.getElementById('evidenceContent').innerHTML = `
@@ -2275,9 +2313,25 @@
             showSuccessModal('تم التصدير', 'تم تصدير البيانات بنجاح');
         }
 
+        // ====== Auto Refresh (كل 30 ثانية) ======
+        let autoRefreshInterval = null;
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            autoRefreshInterval = setInterval(async () => {
+                if (currentUser) {
+                    await loadUsersFromAPI();
+                    await loadEvidencesFromAPI();
+                    console.log('🔄 تم تحديث البيانات تلقائياً');
+                }
+            }, 30000);
+        }
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
+        }
+
         // ====== Init ======
         (function init() {
-            console.log('منصة الاعتماد المدرسي - جاهزة');
+            console.log('✅ منصة الاعتماد المدرسي - جاهزة');
             console.log('API Base:', API_BASE);
         })();
     </script>
