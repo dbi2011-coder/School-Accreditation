@@ -1325,8 +1325,8 @@
                                     else if (e.status === 'rejected') { statusBadge = 'badge-status-rejected'; statusLabel = 'مرفوض'; }
                                     else { statusBadge = 'badge-status-pending'; statusLabel = 'قيد الاعتماد'; isPrintable = true; }
                                     const implementersNames = e.implementers && e.implementers.length > 0 ? e.implementers.map(imp => imp.userName).join('، ') : e.userName;
-                                    const canEdit = e.userId === currentUser.id || (e.implementers && e.implementers.some(imp => imp.userId === currentUser.id));
-                                    const canDelete = e.userId === currentUser.id;
+                                    const canEdit = e.userId === currentUser.id || currentUser.role === 'leader' || (e.implementers && e.implementers.some(imp => imp.userId === currentUser.id));
+                                    const canDelete = e.userId === currentUser.id || currentUser.role === 'leader';
                                     const appendicesCount = e.appendices ? e.appendices.length : 0;
                                     const appendixBadge = appendicesCount > 0 ? ` <span style="background: var(--etec-pink); color: white; padding: 2px 8px; border-radius: 8px; font-size: 11px;"><i class="fas fa-paperclip"></i> ${appendicesCount}</span>` : '';
                                     const dateDisplay = e.date || '-';
@@ -1443,7 +1443,7 @@
         async function deleteEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
-            if (evidence.userId !== currentUser.id && currentUser.role !== 'leader') { showErrorModal('خطأ', 'فقط الرافع الأصلي للشاهد يمكنه حذفه'); return; }
+            if (evidence.userId !== currentUser.id && currentUser.role !== 'leader') { showErrorModal('خطأ', 'فقط الرافع الأصلي للشاهد أو المدير يمكنه حذفه'); return; }
             showConfirmModal('تأكيد الحذف', `هل أنت متأكد من حذف الشاهد "${evidence.title}" بشكل نهائي؟`, async () => {
                 try {
                     const result = await apiCall(`/api/evidences/${id}`, { method: 'DELETE' });
@@ -1458,8 +1458,8 @@
         function editEvidence(id) {
             const evidence = evidences.find(e => e.id === id);
             if (!evidence) return;
-            const canEdit = evidence.userId === currentUser.id || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
-            if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
+            const canEdit = evidence.userId === currentUser.id || currentUser.role === 'leader' || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
+            if (!canEdit) { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
             const availableUsers = users.filter(u => u.role !== 'external_committee');
             const currentImplementerIds = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userId) : [evidence.userId];
             const appendices = evidence.appendices || [];
@@ -2327,7 +2327,6 @@
         async function importMergeBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
             showConfirmModal(
                 '📥 تأكيد الاستيراد',
                 'سيتم إضافة البيانات من الملف إلى البيانات الحالية (بدون حذف الموجود). هل أنت متأكد؟',
@@ -2341,21 +2340,14 @@
                                 event.target.value = '';
                                 return;
                             }
-                            
                             showPrintProgressModal('جاري استيراد ودمج البيانات...');
                             updatePrintProgress(0, 1);
-                            
                             const result = await apiCall('/api/import-merge', {
                                 method: 'POST',
-                                body: {
-                                    users: backupData.users,
-                                    evidences: backupData.evidences
-                                }
+                                body: { users: backupData.users, evidences: backupData.evidences }
                             });
-                            
                             updatePrintProgress(1, 1, 'اكتمل!');
                             setTimeout(() => hidePrintProgressModal(), 500);
-                            
                             if (result.success) {
                                 await loadUsersFromAPI();
                                 await loadEvidencesFromAPI();
