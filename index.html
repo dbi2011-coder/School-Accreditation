@@ -442,6 +442,26 @@
             return `${API_BASE}/api/file/${encodeURIComponent(key)}`;
         }
 
+        // عرض PDF من R2 عبر URL
+        async function renderPdfFromUrl(containerId, url) {
+            try {
+                const container = document.getElementById(containerId);
+                if (!container) { console.warn('Container not found:', containerId); return; }
+                container.innerHTML = '';
+                const pdf = await pdfjsLib.getDocument(url).promise;
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 1.5 });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    container.appendChild(canvas);
+                }
+            } catch (error) { console.error('خطأ في عرض PDF:', error); }
+        }
+
         const domains = [
             { id: 1, name: "مجال الإدارة المدرسية",
               standards: [
@@ -608,45 +628,6 @@
                 evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(getFileUrl(img))); });
             }
             return allImages;
-        }
-        function buildUnifiedImagesForSingleEvidence(evidence) {
-            const allImages = collectAllEvidenceImages(evidence);
-            if (allImages.length === 0) return { firstPageImages: [], extraPagesHtml: '', totalImages: 0 };
-            if (allImages.length >= 3) {
-                const chunks = chunkArray(allImages, 6);
-                let extraPagesHtml = '';
-                chunks.forEach((chunk, idx) => {
-                    const gridClass = `images-grid-${chunk.length}`;
-                    const isLastChunk = idx === chunks.length - 1;
-                    extraPagesHtml += `<div class="evidence-print-page"><div class="${gridClass}">${chunk.map(img => `<div class="media-image"><img src="${img}" alt="صورة"></div>`).join('')}</div>${isLastChunk ? `<div class="signature">مدير المدرسة: أ / عمر عبد الله الحماد</div>` : ''}</div>`;
-                });
-                return { firstPageImages: [], extraPagesHtml, totalImages: allImages.length };
-            }
-            return { firstPageImages: allImages, extraPagesHtml: '', totalImages: allImages.length };
-        }
-        function buildUnifiedImagesForReport(evidence) {
-            const allImages = collectAllEvidenceImages(evidence);
-            if (allImages.length === 0) return { firstPageImages: [], extraPagesHtml: '' };
-            const firstPageImages = allImages.slice(0, 4);
-            const remainingImages = allImages.slice(4);
-            const remainingChunks = chunkArray(remainingImages, 6);
-            let extraPagesHtml = '';
-            remainingChunks.forEach(chunk => {
-                const gridClass = `images-grid-${chunk.length}`;
-                extraPagesHtml += `<div class="report-page"><div class="${gridClass}">${chunk.map(img => `<div class="media-image"><img src="${img}" alt="صورة"></div>`).join('')}</div></div>`;
-            });
-            return { firstPageImages, extraPagesHtml };
-        }
-        function buildReadyMadeAppendixImagesPages(evidence, pageClass = 'report-page') {
-            const allImages = collectAppendixImagesOnly(evidence);
-            if (allImages.length === 0) return '';
-            const chunks = chunkArray(allImages, 6);
-            let html = '';
-            chunks.forEach(chunk => {
-                const gridClass = `images-grid-${chunk.length}`;
-                html += `<div class="${pageClass}"><div class="${gridClass}">${chunk.map(img => `<div class="media-image"><img src="${img}" alt="صورة"></div>`).join('')}</div></div>`;
-            });
-            return html;
         }
         function buildReadyMadeAppendixImagesSingleGrid(evidence) {
             const allImages = collectAppendixImagesOnly(evidence);
@@ -1445,14 +1426,14 @@
             const canPrint = currentUser.role !== 'external_committee' && (evidence.status === 'approved' || evidence.status === 'pending');
             const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
             const pdfTasks = [];
-            if (evidence.pdf) pdfTasks.push({ cid: `viewPdfContainer_${evidence.id}`, pdfData: getFileUrl(evidence.pdf) });
+            if (evidence.pdf) pdfTasks.push({ cid: `viewPdfContainer_${evidence.id}`, pdfUrl: getFileUrl(evidence.pdf) });
             let appendixPdfHtml = '';
             if (evidence.appendices && evidence.appendices.length > 0) {
                 evidence.appendices.forEach((app, appIdx) => {
                     if (app.pdfs && app.pdfs.length > 0) {
                         app.pdfs.forEach((pdfData, pdfIdx) => {
                             const cid = `viewAppendixPdf_${evidence.id}_${appIdx}_${pdfIdx}`;
-                            pdfTasks.push({ cid, pdfData: getFileUrl(pdfData) });
+                            pdfTasks.push({ cid, pdfUrl: getFileUrl(pdfData) });
                             appendixPdfHtml += `<div class="pdf-pages-container" id="${cid}"></div>`;
                         });
                     }
@@ -1489,7 +1470,7 @@
             document.getElementById('evidenceContent').innerHTML = html;
             let completed = 0;
             for (const task of pdfTasks) {
-                await renderPdfFromUrl(task.cid, task.pdfData);
+                await renderPdfFromUrl(task.cid, task.pdfUrl);
                 completed++;
                 updateProgressBar('viewPdfProgress', completed, pdfTasks.length);
             }
@@ -1636,56 +1617,27 @@
             } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر التحديث: ' + error.message); }
         }
 
-        async function renderPdfFromUrl(containerId, url) {
-            try {
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                container.innerHTML = '';
-                const pdf = await pdfjsLib.getDocument(url).promise;
-                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                    const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    await page.render({ canvasContext: context, viewport: viewport }).promise;
-                    container.appendChild(canvas);
-                }
-            } catch (error) { console.error('خطأ في عرض PDF:', error); }
-        }
-
         async function printSingleEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
             if (evidence.status !== 'approved' && evidence.status !== 'pending') { showErrorModal('تنبيه', 'لا يمكن طباعة الشواهد المرفوضة'); return; }
-            let totalPdfs = 0;
-            if (evidence.pdf) totalPdfs++;
-            if (evidence.appendices) evidence.appendices.forEach(app => { if (app.pdfs) totalPdfs += app.pdfs.length; });
             showPrintProgressModal('جاري تجهيز الشاهد للطباعة...');
-            updatePrintProgress(0, totalPdfs + 1);
             const domain = domains.find(d => d.id === evidence.domainId);
             const standard = domain?.standards.find(s => s.id === evidence.standardId);
             const indicator = standard?.indicators.find(i => i.id === evidence.indicatorId);
             const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
-            const appendixPdfMap = [];
-            let appendixPdfPages = '';
-            if (evidence.appendices && evidence.appendices.length > 0) {
-                evidence.appendices.forEach((app, appIdx) => {
-                    if (app.pdfs && app.pdfs.length > 0) {
-                        app.pdfs.forEach((pdfData, pdfIdx) => {
-                            const cid = `printAppendixPdf_${evidence.id}_${appIdx}_${pdfIdx}`;
-                            appendixPdfMap.push({ cid, pdfUrl: getFileUrl(pdfData) });
-                            appendixPdfPages += `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" id="${cid}"></div></div>`;
-                        });
-                    }
-                });
-            }
-            updatePrintProgress(1, totalPdfs + 1, 'جاري فتح نافذة الطباعة...');
+            const allImgs = collectAllEvidenceImages(evidence);
+            const imgsHtml = allImgs.length > 0 ? `<div class="${allImgs.length === 1 ? 'images-grid-1' : 'images-grid-2'}">${allImgs.map(u => `<div class="media-image"><img src="${u}"></div>`).join('')}</div>` : '';
+            const pdfUrls = [];
+            if (evidence.pdf) pdfUrls.push(getFileUrl(evidence.pdf));
+            if (evidence.appendices) evidence.appendices.forEach(app => { if (app.pdfs) app.pdfs.forEach(p => pdfUrls.push(getFileUrl(p))); });
             const printWindow = window.open('', '_blank', 'width=800,height=600');
             if (!printWindow) { hidePrintProgressModal(); showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة'); return; }
-            const baseHref = new URL(API_BASE).origin + '/';
-            const renderScript = `
+            const pdfContainersHtml = pdfUrls.map((url, i) => `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${url}"></div></div>`).join('');
+            printWindow.document.write(`
+                <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+                <title>طباعة شاهد - ${evidence.title}</title>
+                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>
                 <script>
                     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -1707,70 +1659,48 @@
                         }
                         window.print();
                     }
-                    window.addEventListener('load', () => setTimeout(renderAllPdfs, 500));
+                    window.addEventListener('load', () => setTimeout(renderAllPdfs, 800));
                 <\/script>
-            `;
-            let pdfDataAttr = '';
-            if (evidence.pdf) pdfDataAttr = `data-pdf-url="${getFileUrl(evidence.pdf)}"`;
-            appendixPdfMap.forEach(m => {
-                const el = printWindow.document.getElementById(m.cid);
-            });
-            printWindow.document.write(`
-                <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-                <title>طباعة شاهد - ${evidence.title}</title>
-                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 20px; }
-                    .evidence-print-page { max-width: 800px; margin: 0 auto 20px; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; position: relative; }
-                    .evidence-print-page.pdf-only-page { page-break-after: auto !important; page-break-before: auto !important; padding: 0 !important; margin: 0 !important; border: none !important; }
+                    body { font-family: 'Cairo', sans-serif; direction: rtl; padding: 20px; }
+                    .evidence-print-page { max-width: 800px; margin: 0 auto 20px; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
+                    .evidence-print-page.pdf-only-page { page-break-after: auto !important; padding: 0 !important; margin: 0 !important; border: none !important; }
                     .print-header { text-align: center; border-bottom: 3px solid #3A2375; padding-bottom: 15px; margin-bottom: 25px; }
-                    .print-header h1 { color: #3A2375; font-size: 28px; margin-bottom: 5px; }
-                    .print-header p { color: #64748B; font-size: 14px; }
+                    .print-header h1 { color: #3A2375; font-size: 28px; }
                     .evidence-title { text-align: center; font-size: 22px; font-weight: 700; color: #C82269; margin-bottom: 25px; padding: 10px; background: #FFF0F5; border-radius: 8px; }
                     .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; line-height: 1.8; vertical-align: top; }
-                    .info-table th { background: #F4F5F8; width: 30%; font-weight: 600; color: #3A2375; }
-                    .info-table td { width: 70%; }
-                    .images-grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 15px; max-width: 500px; margin-left: auto; margin-right: auto; }
-                    .images-grid-2, .images-grid-3, .images-grid-4, .images-grid-5, .images-grid-6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 15px; }
-                    .media-image img { width: 100%; height: 240px; object-fit: contain; background: #f8f9fa; border-radius: 8px; border: 1px solid #E2E8F0; }
-                    .signature { margin-top: 40px; text-align: left; font-weight: 700; font-size: 15px; }
-                    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
+                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; }
+                    .info-table th { background: #F4F5F8; width: 30%; color: #3A2375; }
+                    .images-grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; max-width: 500px; margin: 0 auto; }
+                    .images-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+                    .media-image img { width: 100%; height: 240px; object-fit: contain; border-radius: 8px; border: 1px solid #E2E8F0; }
+                    .status-badge { padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
                     .status-approved { background: #27AE60; }
                     .status-pending { background: #E77B26; }
-                    .pdf-container { margin-top: 0; }
-                    .pdf-container canvas { max-width: 100%; height: auto; margin: 10px 0; border: 1px solid #E2E8F0; page-break-after: always; page-break-inside: avoid; }
+                    .pdf-container canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; page-break-after: always; }
                     @media print { body { padding: 0; } .evidence-print-page { border: none; padding: 20px; } .evidence-print-page.pdf-only-page { padding: 0 !important; margin: 0 !important; } .status-approved, .status-pending { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
                 </style></head><body>
                 <div class="evidence-print-page">
                     <div class="print-header"><h1>ملف الإنجاز</h1><p>شاهد معتمد - ${currentUser.name}</p></div>
                     <div class="evidence-title">${evidence.title}</div>
                     <table class="info-table">
-                        <tr><th>المجال</th><td>${domain?.name || 'غير محدد'}</td></tr>
-                        <tr><th>المعيار</th><td>${standard?.name || 'غير محدد'}</td></tr>
-                        <tr><th>المؤشر</th><td>${indicator?.name || 'غير محدد'}</td></tr>
-                        <tr><th>وصف النشاط وأهدافه</th><td>${evidence.description || 'لا يوجد'}</td></tr>
-                        <tr><th>المستفيدون</th><td>${evidence.beneficiaries || 'لا يوجد'}</td></tr>
+                        <tr><th>المجال</th><td>${domain?.name || '-'}</td></tr>
+                        <tr><th>المعيار</th><td>${standard?.name || '-'}</td></tr>
+                        <tr><th>المؤشر</th><td>${indicator?.name || '-'}</td></tr>
+                        <tr><th>وصف النشاط</th><td>${evidence.description || '-'}</td></tr>
+                        <tr><th>المستفيدون</th><td>${evidence.beneficiaries || '-'}</td></tr>
                         <tr><th>المنفذون</th><td>${implementersNames}</td></tr>
-                        <tr><th>اليوم والتاريخ</th><td>${evidence.date || '-'}</td></tr>
+                        <tr><th>التاريخ</th><td>${evidence.date || '-'}</td></tr>
                         <tr><th>الحالة</th><td><span class="status-badge ${evidence.status === 'approved' ? 'status-approved' : 'status-pending'}">${evidence.status === 'approved' ? 'معتمد' : 'قيد الاعتماد'}</span></td></tr>
                     </table>
-                    <div id="mainImagesContainer"></div>
+                    ${imgsHtml}
                 </div>
-                ${evidence.pdf ? `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${getFileUrl(evidence.pdf)}"></div></div>` : ''}
-                ${appendixPdfMap.map(m => `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${m.pdfUrl}"></div></div>`).join('')}
-                ${renderScript}
+                ${pdfContainersHtml}
                 </body></html>
             `);
             printWindow.document.close();
-            const allImgs = collectAllEvidenceImages(evidence);
-            const mainImgsContainer = printWindow.document.getElementById('mainImagesContainer');
-            if (mainImgsContainer && allImgs.length > 0) {
-                const gridClass = allImgs.length === 1 ? 'images-grid-1' : 'images-grid-2';
-                mainImgsContainer.innerHTML = `<div class="${gridClass}">${allImgs.map(u => `<div class="media-image"><img src="${u}"></div>`).join('')}</div>`;
-            }
-            setTimeout(() => hidePrintProgressModal(), 1500);
+            setTimeout(() => hidePrintProgressModal(), 2000);
         }
 
         async function printSelectedEvidences() {
@@ -1781,7 +1711,7 @@
             showPrintProgressModal(`جاري تجهيز ${selectedEvidences.length} شاهد للطباعة...`);
             const printWindow = window.open('', '_blank', 'width=900,height=700');
             if (!printWindow) { hidePrintProgressModal(); showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة'); return; }
-            let reportContent = `<div class="report-cover"><h1>ملف الإنجاز</h1><h2>${currentUser.name}</h2><p>عدد الشواهد: ${selectedEvidences.length}</p></div>`;
+            let reportContent = `<div class="report-cover"><h1>ملف الإنجاز</h1><h2>${currentUser.name}</h2><p>عدد الشواهد: ${selectedEvidences.length}</p><p>تاريخ الإنشاء: ${new Date().toLocaleDateString('ar-SA')}</p></div>`;
             selectedEvidences.forEach((ev) => {
                 const domain = domains.find(d => d.id === ev.domainId);
                 const standard = domain?.standards.find(s => s.id === ev.standardId);
@@ -1818,7 +1748,7 @@
                         }
                         window.print();
                     }
-                    window.addEventListener('load', () => setTimeout(renderAllPdfs, 500));
+                    window.addEventListener('load', () => setTimeout(renderAllPdfs, 800));
                 <\/script>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1831,16 +1761,16 @@
                     .evidence-title { text-align: center; font-size: 22px; font-weight: 700; color: #C82269; margin-bottom: 25px; padding: 10px; background: #FFF0F5; border-radius: 8px; }
                     .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
                     .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; }
-                    .info-table th { background: #F4F5F8; width: 30%; font-weight: 600; color: #3A2375; }
+                    .info-table th { background: #F4F5F8; width: 30%; color: #3A2375; }
                     .images-grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; max-width: 500px; margin: 0 auto; }
                     .images-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-                    .media-image img { width: 100%; height: 300px; object-fit: contain; background: #f8f9fa; border-radius: 8px; border: 1px solid #E2E8F0; }
+                    .media-image img { width: 100%; height: 300px; object-fit: contain; border-radius: 8px; border: 1px solid #E2E8F0; }
                     .pdf-container canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; page-break-after: always; }
                     @media print { body { padding: 0; } .evidence-page { border: none; padding: 20px; } .evidence-page.pdf-only-page { padding: 0 !important; margin: 0 !important; } }
                 </style></head><body>${reportContent}</body></html>
             `);
             printWindow.document.close();
-            setTimeout(() => hidePrintProgressModal(), 1500);
+            setTimeout(() => hidePrintProgressModal(), 2000);
         }
 
         function showReports() {
@@ -1979,6 +1909,7 @@
             let html = '';
             let hasData = false;
             html += `<div class="no-print" style="margin-bottom: 20px; text-align: left; display: flex; gap: 10px; flex-wrap: wrap;"><button class="btn-etec-primary" onclick="printReport()"><i class="fas fa-print"></i> طباعة التقرير</button><button class="btn-etec-secondary" onclick="showReportBuilder()"><i class="fas fa-arrow-right"></i> العودة للاختيار</button></div>`;
+            const pdfTasks = [];
             domains.forEach(d => {
                 let domainHasEvidences = false;
                 d.standards.forEach(s => {
@@ -2000,11 +1931,56 @@
                                     html += `<div class="report-page cover-indicator"><h2>${s.name}</h2><h3>${ind.name}</h3></div>`;
                                     evs.forEach(ev => {
                                         const implementersNames = ev.implementers && ev.implementers.length > 0 ? ev.implementers.map(imp => imp.userName).join('، ') : ev.userName;
+                                        if (ev.readyMade) {
+                                            if (ev.pdf) {
+                                                const cid = `reportReadyPdf_${ev.id}`;
+                                                pdfTasks.push({ cid, pdfUrl: getFileUrl(ev.pdf) });
+                                                html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
+                                            }
+                                            const allImgs = collectAllEvidenceImages(ev);
+                                            if (allImgs.length > 0) {
+                                                const gridClass = allImgs.length === 1 ? 'images-grid-1' : (allImgs.length === 2 ? 'images-grid-2' : 'images-grid-3');
+                                                html += `<div class="report-page"><div class="${gridClass}">${allImgs.map(img => `<div class="media-image"><img src="${img}"></div>`).join('')}</div></div>`;
+                                            }
+                                            if (ev.appendices && ev.appendices.length > 0) {
+                                                ev.appendices.forEach((app, appIdx) => {
+                                                    if (app.pdfs && app.pdfs.length > 0) {
+                                                        app.pdfs.forEach((pdfData, pdfIdx) => {
+                                                            const cid = `reportReadyAppendixPdf_${ev.id}_${appIdx}_${pdfIdx}`;
+                                                            pdfTasks.push({ cid, pdfUrl: getFileUrl(pdfData) });
+                                                            html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                            return;
+                                        }
                                         const allImgs = collectAllEvidenceImages(ev);
-                                        const imgsHtml = allImgs.length > 0 ? `<div class="${allImgs.length === 1 ? 'images-grid-1' : 'images-grid-2'}">${allImgs.map(u => `<div class="media-image"><img src="${u}"></div>`).join('')}</div>` : '';
-                                        html += `<div class="report-page"><div class="activity-title">${ev.title}</div><table class="activity-table"><tr><th>وصف النشاط</th><td>${ev.description}</td></tr><tr><th>المستفيدون</th><td>${ev.beneficiaries}</td></tr><tr><th>المنفذون</th><td>${implementersNames}</td></tr><tr><th>التاريخ</th><td>${ev.date || '-'}</td></tr></table>${imgsHtml}</div>`;
-                                        if (ev.pdf) html += `<div class="report-page pdf-pages-container" data-pdf-url="${getFileUrl(ev.pdf)}"></div>`;
-                                        if (ev.appendices) ev.appendices.forEach(app => { if (app.pdfs) app.pdfs.forEach(p => { html += `<div class="report-page pdf-pages-container" data-pdf-url="${getFileUrl(p)}"></div>`; }); });
+                                        const firstPageImages = allImgs.slice(0, 4);
+                                        const remainingImages = allImgs.slice(4);
+                                        const firstPageGridHtml = buildFirstPageImagesGrid(firstPageImages);
+                                        html += `<div class="report-page"><div class="activity-report"><div><div class="activity-title">${ev.title}</div><table class="activity-table"><tr><th>وصف النشاط وأهدافه</th><td>${ev.description}</td></tr><tr><th>المستفيدون</th><td>${ev.beneficiaries}</td></tr><tr><th>المنفذون</th><td>${implementersNames}</td></tr><tr><th>اليوم والتاريخ</th><td>${ev.date || '-'}</td></tr></table>${firstPageGridHtml}</div></div><div class="principal-signature">مدير المدرسة: أ / عمر عبد الله الحماد</div></div>`;
+                                        const remainingChunks = chunkArray(remainingImages, 6);
+                                        remainingChunks.forEach(chunk => {
+                                            const gridClass = `images-grid-${chunk.length}`;
+                                            html += `<div class="report-page"><div class="${gridClass}">${chunk.map(img => `<div class="media-image"><img src="${img}"></div>`).join('')}</div></div>`;
+                                        });
+                                        if (ev.pdf) {
+                                            const cid = `reportPdfContainer_${ev.id}`;
+                                            pdfTasks.push({ cid, pdfUrl: getFileUrl(ev.pdf) });
+                                            html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
+                                        }
+                                        if (ev.appendices && ev.appendices.length > 0) {
+                                            ev.appendices.forEach((app, appIdx) => {
+                                                if (app.pdfs && app.pdfs.length > 0) {
+                                                    app.pdfs.forEach((pdfData, pdfIdx) => {
+                                                        const cid = `reportAppendixPdf_${ev.id}_${appIdx}_${pdfIdx}`;
+                                                        pdfTasks.push({ cid, pdfUrl: getFileUrl(pdfData) });
+                                                        html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
+                                                    });
+                                                }
+                                            });
+                                        }
                                     });
                                 }
                             }
@@ -2012,8 +1988,20 @@
                     });
                 }
             });
-            if (!hasData) html += `<div class="etec-card" style="text-align: center; padding: 40px;"><h3 style="color: var(--etec-primary);">لا توجد شواهد معتمدة للمؤشرات المحددة</h3></div>`;
+            if (!hasData) html += `<div class="etec-card" style="text-align: center; padding: 40px;"><h3 style="color: var(--etec-primary);">لا توجد شواهد معتمدة للمؤشرات المحددة</h3><button class="btn-etec-secondary" onclick="showReportBuilder()" style="margin-top: 15px;">العودة للاختيار</button></div>`;
+            let progressHtml = '';
+            if (pdfTasks.length > 0 && hasData) {
+                progressHtml = createProgressBar('reportPdfProgress', pdfTasks.length, 'جاري تحميل المرفقات في التقرير');
+                html = progressHtml + html;
+            }
             document.getElementById('reportContent').innerHTML = html;
+            let completed = 0;
+            for (const task of pdfTasks) {
+                if (document.getElementById(task.cid)) await renderPdfFromUrl(task.cid, task.pdfUrl);
+                completed++;
+                updateProgressBar('reportPdfProgress', completed, pdfTasks.length);
+            }
+            if (pdfTasks.length > 0) setTimeout(() => hideProgressBar('reportPdfProgress'), 800);
         }
 
         function printReport() { window.print(); }
