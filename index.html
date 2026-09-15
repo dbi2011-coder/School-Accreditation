@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         :root {
             --etec-primary: #3A2375;
@@ -408,6 +407,41 @@
             }
         }
 
+        // رفع ملف إلى R2 عبر الـ Worker
+        async function uploadFileToR2(file, evidenceId, fileType) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    try {
+                        const result = await apiCall('/api/upload', {
+                            method: 'POST',
+                            body: {
+                                fileData: reader.result,
+                                fileName: file.name || '',
+                                fileType: fileType,
+                                evidenceId: evidenceId || 'new'
+                            }
+                        });
+                        if (result.success) {
+                            console.log(`✅ رُفع الملف إلى R2: ${result.key}`);
+                            resolve(result.key);
+                        } else {
+                            reject(new Error(result.error || 'فشل الرفع'));
+                        }
+                    } catch (err) { reject(err); }
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // توليد رابط عام للملف في R2
+        function getFileUrl(key) {
+            if (!key) return '';
+            if (key.startsWith('http://') || key.startsWith('https://') || key.startsWith('data:')) return key;
+            return `${API_BASE}/api/file/${encodeURIComponent(key)}`;
+        }
+
         const domains = [
             { id: 1, name: "مجال الإدارة المدرسية",
               standards: [
@@ -562,16 +596,16 @@
         }
         function collectAllEvidenceImages(evidence) {
             const allImages = [];
-            if (evidence.images && evidence.images.length > 0) evidence.images.forEach(img => allImages.push(img));
+            if (evidence.images && evidence.images.length > 0) evidence.images.forEach(img => allImages.push(getFileUrl(img)));
             if (evidence.appendices && evidence.appendices.length > 0) {
-                evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(img)); });
+                evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(getFileUrl(img))); });
             }
             return allImages;
         }
         function collectAppendixImagesOnly(evidence) {
             const allImages = [];
             if (evidence.appendices && evidence.appendices.length > 0) {
-                evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(img)); });
+                evidence.appendices.forEach(app => { if (app.images && app.images.length > 0) app.images.forEach(img => allImages.push(getFileUrl(img))); });
             }
             return allImages;
         }
@@ -659,7 +693,7 @@
             if (container) { container.classList.remove('active'); setTimeout(() => { if (container) container.remove(); }, 500); }
         }
         function showPrintProgressModal(message = 'جاري تجهيز الطباعة...') {
-            const html = `<div class="print-progress-modal" id="printProgressModal"><div class="print-progress-content"><div class="print-progress-icon"><i class="fas fa-file-pdf"></i></div><div class="print-progress-title">جاري تجهيز الملف</div><div class="print-progress-message" id="printProgressMessage">${message}</div><div class="pdf-progress-bar-wrapper" style="margin-top: 20px;"><div class="pdf-progress-bar" id="printProgressBar"></div></div><div class="pdf-progress-status" id="printProgressStatus" style="text-align:center; margin-top:10px;">0%</div></div></div>`;
+            const html = `<div class="print-progress-modal" id="printProgressModal"><div class="print-progress-content"><div class="print-progress-icon"><i class="fas fa-file-pdf"></i></div><div class="print-progress-title">جاري تجهيز الطباعة</div><div class="print-progress-message" id="printProgressMessage">${message}</div><div class="pdf-progress-bar-wrapper" style="margin-top: 20px;"><div class="pdf-progress-bar" id="printProgressBar"></div></div><div class="pdf-progress-status" id="printProgressStatus" style="text-align:center; margin-top:10px;">0%</div></div></div>`;
             document.body.insertAdjacentHTML('beforeend', html);
         }
         function updatePrintProgress(current, total, message = null) {
@@ -709,177 +743,6 @@
             if (dateInput) {
                 if (radioValue === 'specific') { dateInput.disabled = false; dateInput.value = value; }
                 else { dateInput.disabled = true; dateInput.value = ''; }
-            }
-        }
-
-        // ====== ضغط الصور تلقائياً ======
-        async function compressImage(file, maxWidth = 1600, quality = 0.7) {
-            return new Promise((resolve, reject) => {
-                if (!file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-                        if (width > maxWidth) {
-                            height = Math.round((maxWidth / width) * height);
-                            width = maxWidth;
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                        console.log(`📸 ضغط الصورة: ${Math.round(file.size / 1024)} KB → ${Math.round(compressedDataUrl.length * 0.75 / 1024)} KB`);
-                        resolve(compressedDataUrl);
-                    };
-                    img.onerror = reject;
-                    img.src = e.target.result;
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-
-        // ====== ضغط PDF قوي متدرج ======
-        async function compressPDF(file, onProgress = null) {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    const originalSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                    console.log(`📄 بدء ضغط PDF: ${originalSizeMB} MB`);
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    const numPages = pdfDoc.numPages;
-                    console.log(`📄 عدد الصفحات: ${numPages}`);
-                    const attempts = [
-                        { quality: 0.7, scale: 1.5 },
-                        { quality: 0.5, scale: 1.2 },
-                        { quality: 0.35, scale: 1.0 },
-                        { quality: 0.25, scale: 0.8 }
-                    ];
-                    for (let attemptIdx = 0; attemptIdx < attempts.length; attemptIdx++) {
-                        const { quality, scale } = attempts[attemptIdx];
-                        console.log(`🔄 محاولة ${attemptIdx + 1}: جودة ${quality}, حجم ${scale}`);
-                        const newPdf = await PDFLib.PDFDocument.create();
-                        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-                            const page = await pdfDoc.getPage(pageNum);
-                            const viewport = page.getViewport({ scale: scale });
-                            const canvas = document.createElement('canvas');
-                            canvas.width = viewport.width;
-                            canvas.height = viewport.height;
-                            const ctx = canvas.getContext('2d');
-                            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                            const jpegDataUrl = canvas.toDataURL('image/jpeg', quality);
-                            const jpegBytes = await fetch(jpegDataUrl).then(r => r.arrayBuffer());
-                            const jpegImage = await newPdf.embedJpg(jpegBytes);
-                            const newPage = newPdf.addPage([viewport.width, viewport.height]);
-                            newPage.drawImage(jpegImage, { x: 0, y: 0, width: viewport.width, height: viewport.height });
-                            if (onProgress) onProgress({ attempt: attemptIdx + 1, page: pageNum, totalPages: numPages });
-                        }
-                        const pdfBytes = await newPdf.save();
-                        const finalSizeMB = pdfBytes.length / (1024 * 1024);
-                        console.log(`✅ محاولة ${attemptIdx + 1}: ${finalSizeMB.toFixed(2)} MB`);
-                        if (finalSizeMB < 2.5) {
-                            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                                const ratio = Math.round((1 - finalSizeMB / originalSizeMB) * 100);
-                                console.log(`✅ تم ضغط PDF: ${originalSizeMB} MB → ${finalSizeMB.toFixed(2)} MB (توفير ${ratio}%)`);
-                                resolve(reader.result);
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                            return;
-                        }
-                    }
-                    reject(new Error('لم يتمكن الضغط من الوصول لحجم مقبول'));
-                } catch (error) {
-                    console.error('❌ فشل ضغط PDF:', error);
-                    reject(error);
-                }
-            });
-        }
-
-        // ====== تقسيم PDF كبير ======
-        async function splitPDF(pdfBase64, maxSizeMB = 2.5) {
-            try {
-                const base64Data = pdfBase64.split(',')[1];
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                const srcDoc = await PDFLib.PDFDocument.load(bytes);
-                const totalPages = srcDoc.getPageCount();
-                const totalSizeMB = bytes.length / (1024 * 1024);
-                const numParts = Math.ceil(totalSizeMB / maxSizeMB);
-                const pagesPerPart = Math.ceil(totalPages / numParts);
-                console.log(`📦 تقسيم PDF: ${numParts} أجزاء × ${pagesPerPart} صفحة`);
-                const parts = [];
-                for (let i = 0; i < numParts; i++) {
-                    const startPage = i * pagesPerPart;
-                    const endPage = Math.min(startPage + pagesPerPart, totalPages);
-                    if (startPage >= totalPages) break;
-                    const newDoc = await PDFLib.PDFDocument.create();
-                    const pageIndices = [];
-                    for (let p = startPage; p < endPage; p++) pageIndices.push(p);
-                    const copiedPages = await newDoc.copyPages(srcDoc, pageIndices);
-                    copiedPages.forEach(page => newDoc.addPage(page));
-                    const partBytes = await newDoc.save();
-                    const partBlob = new Blob([partBytes], { type: 'application/pdf' });
-                    const partBase64 = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.readAsDataURL(partBlob);
-                    });
-                    parts.push({
-                        data: partBase64,
-                        partNumber: i + 1,
-                        totalParts: numParts,
-                        sizeMB: partBytes.length / (1024 * 1024)
-                    });
-                    console.log(`  ↳ الجزء ${i + 1}/${numParts}: ${(partBytes.length / (1024 * 1024)).toFixed(2)} MB`);
-                }
-                return parts;
-            } catch (error) {
-                console.error('❌ فشل تقسيم PDF:', error);
-                throw error;
-            }
-        }
-
-        // ====== معالجة PDF الشاملة ======
-        async function processPDF(file) {
-            const originalSizeMB = file.size / (1024 * 1024);
-            console.log(`📄 معالجة PDF: ${originalSizeMB.toFixed(2)} MB`);
-            showPrintProgressModal('جاري معالجة PDF...');
-            updatePrintProgress(0, 100, 'جاري قراءة الملف...');
-            try {
-                updatePrintProgress(20, 100, 'جاري ضغط PDF...');
-                const compressedBase64 = await compressPDF(file, (progress) => {
-                    const percent = 20 + Math.round((progress.page / progress.totalPages) * 50);
-                    updatePrintProgress(percent, 100, `ضغط المحاولة ${progress.attempt} - صفحة ${progress.page}/${progress.totalPages}`);
-                });
-                const compressedMB = Math.round(compressedBase64.length * 0.75) / (1024 * 1024);
-                console.log(`✅ بعد الضغط: ${compressedMB.toFixed(2)} MB`);
-                if (compressedMB < 2.5) {
-                    updatePrintProgress(100, 100, 'اكتمل!');
-                    setTimeout(() => hidePrintProgressModal(), 500);
-                    return { type: 'single', parts: [{ data: compressedBase64, partNumber: 1, totalParts: 1, sizeMB: compressedMB }] };
-                }
-                updatePrintProgress(75, 100, `جاري تقسيم PDF (${compressedMB.toFixed(1)} MB)...`);
-                const parts = await splitPDF(compressedBase64, 2.5);
-                updatePrintProgress(100, 100, `اكتمل! تم التقسيم إلى ${parts.length} أجزاء`);
-                setTimeout(() => hidePrintProgressModal(), 500);
-                return { type: 'split', parts };
-            } catch (error) {
-                hidePrintProgressModal();
-                throw error;
             }
         }
 
@@ -1014,7 +877,6 @@
                 </div>
             `;
         }
-
         function showUserManagement() {
             if (currentUser.role !== 'leader') return;
             const contentArea = document.getElementById('contentArea');
@@ -1400,7 +1262,6 @@
 
         async function submitEvidence(e) {
             e.preventDefault();
-            const toBase64 = file => compressImage(file);
             const isReady = document.getElementById('isReadyMadeCheckbox').checked;
             const isAppendix = document.getElementById('isAppendixCheckbox').checked;
             
@@ -1409,28 +1270,21 @@
                 if (!title) { showErrorModal('تنبيه', 'الرجاء إدخال عنوان الشاهد'); return; }
                 const pdfInput = document.getElementById('evPdf').files[0];
                 if (!pdfInput) { showErrorModal('تنبيه', 'الرجاء إرفاق ملف PDF'); return; }
-                let pdfData, pendingParts = [];
-                try {
-                    const result = await processPDF(pdfInput);
-                    pdfData = result.parts[0].data;
-                    if (result.type === 'split') pendingParts = result.parts.slice(1);
-                } catch (err) { showErrorModal('خطأ', 'تعذر معالجة PDF: ' + err.message); return; }
                 const domainId = parseInt(document.getElementById('domainSelect').value);
                 const standardId = document.getElementById('standardSelect').value;
                 const indicatorId = document.getElementById('indicatorSelect').value;
                 if (!domainId || !standardId || !indicatorId) { showErrorModal('تنبيه', 'الرجاء اختيار المجال والمعيار والمؤشر'); return; }
+                showPrintProgressModal('جاري رفع الملف...');
                 try {
-                    const result = await apiCall('/api/evidences', { method: 'POST', body: { domainId, standardId, indicatorId, title, readyMade: true, pdf: pdfData, images: [], description: '', beneficiaries: '', implementers: [{ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel }], date: '', userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel, status: currentUser.role === 'leader' ? 'approved' : 'pending' } });
+                    const pdfKey = await uploadFileToR2(pdfInput, 'new', 'application/pdf');
+                    updatePrintProgress(100, 100, 'اكتمل الرفع!');
+                    setTimeout(() => hidePrintProgressModal(), 300);
+                    const result = await apiCall('/api/evidences', { method: 'POST', body: { domainId, standardId, indicatorId, title, readyMade: true, pdf: pdfKey, images: [], description: '', beneficiaries: '', implementers: [{ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel }], date: '', userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel, status: currentUser.role === 'leader' ? 'approved' : 'pending' } });
                     if (result.success) {
-                        if (pendingParts.length > 0) {
-                            for (const part of pendingParts) {
-                                await apiCall('/api/appendices', { method: 'POST', body: { evidenceId: result.id, images: [], pdfs: [part.data], userId: currentUser.id, userName: currentUser.name } });
-                            }
-                        }
                         await loadEvidencesFromAPI();
-                        showSuccessModal('تم الحفظ', `تم حفظ الشاهد${pendingParts.length > 0 ? ' (PDF مقسّم إلى ' + (pendingParts.length + 1) + ' أجزاء)' : ''}`, () => showPreviousEvidences());
+                        showSuccessModal('تم الحفظ', 'تم حفظ الشاهد الجاهز بنجاح', () => showPreviousEvidences());
                     }
-                } catch (error) { showErrorModal('خطأ', 'تعذر الحفظ'); }
+                } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر الحفظ: ' + error.message); }
                 return;
             }
             
@@ -1440,61 +1294,69 @@
                 const parent = evidences.find(ev => ev.id === parentId);
                 if (!parent) { showErrorModal('خطأ', 'لم يتم العثور على الشاهد الأصلي'); return; }
                 const filesInput = document.getElementById('evImages').files;
-                let images = [];
-                for (let i = 0; i < filesInput.length; i++) images.push(await toBase64(filesInput[i]));
+                let imageKeys = [];
                 const pdfInput = document.getElementById('evPdf').files;
-                let pdfs = [];
-                for (let i = 0; i < pdfInput.length; i++) {
-                    try {
-                        const result = await processPDF(pdfInput[i]);
-                        for (const part of result.parts) pdfs.push(part.data);
-                    } catch (err) {
-                        const raw = await new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(pdfInput[i]); });
-                        pdfs.push(raw);
-                    }
-                }
-                if (images.length === 0 && pdfs.length === 0) { showErrorModal('تنبيه', 'الرجاء إرفاق صورة واحدة على الأقل أو ملف PDF'); return; }
+                let pdfKeys = [];
+                if (filesInput.length === 0 && pdfInput.length === 0) { showErrorModal('تنبيه', 'الرجاء إرفاق صورة واحدة على الأقل أو ملف PDF'); return; }
+                showPrintProgressModal('جاري رفع المرفقات...');
+                const totalFiles = filesInput.length + pdfInput.length;
+                let uploaded = 0;
                 try {
-                    const result = await apiCall('/api/appendices', { method: 'POST', body: { evidenceId: parentId, images, pdfs, userId: currentUser.id, userName: currentUser.name } });
+                    for (let i = 0; i < filesInput.length; i++) {
+                        const key = await uploadFileToR2(filesInput[i], parentId, filesInput[i].type || 'image/jpeg');
+                        imageKeys.push(key);
+                        uploaded++;
+                        updatePrintProgress(uploaded, totalFiles, `جاري رفع المرفقات (${uploaded}/${totalFiles})`);
+                    }
+                    for (let i = 0; i < pdfInput.length; i++) {
+                        const key = await uploadFileToR2(pdfInput[i], parentId, 'application/pdf');
+                        pdfKeys.push(key);
+                        uploaded++;
+                        updatePrintProgress(uploaded, totalFiles, `جاري رفع المرفقات (${uploaded}/${totalFiles})`);
+                    }
+                    setTimeout(() => hidePrintProgressModal(), 300);
+                    const result = await apiCall('/api/appendices', { method: 'POST', body: { evidenceId: parentId, images: imageKeys, pdfs: pdfKeys, userId: currentUser.id, userName: currentUser.name } });
                     if (result.success) {
                         await loadEvidencesFromAPI();
                         showSuccessModal('تم الإلحاق', `تم إلحاق المرفقات بالشاهد: "${parent.title}"`, () => showPreviousEvidences());
                     }
-                } catch (error) { showErrorModal('خطأ', 'تعذر الإلحاق'); }
+                } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر الإلحاق: ' + error.message); }
                 return;
             }
             
             const filesInput = document.getElementById('evImages').files;
-            let images = [];
-            for (let i = 0; i < Math.min(filesInput.length, 4); i++) images.push(await toBase64(filesInput[i]));
+            let imageKeys = [];
             const pdfInput = document.getElementById('evPdf').files[0];
-            let pdfData = null, pendingParts = [];
-            if (pdfInput) {
-                try {
-                    const result = await processPDF(pdfInput);
-                    pdfData = result.parts[0].data;
-                    if (result.type === 'split') pendingParts = result.parts.slice(1);
-                } catch (err) { showErrorModal('خطأ', 'تعذر معالجة PDF: ' + err.message); return; }
-            }
+            let pdfKey = null;
             const implementersSelect = document.getElementById('evImplementers');
             const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
             if (!selectedImplementerIds.includes(currentUser.id)) selectedImplementerIds.push(currentUser.id);
             const implementers = selectedImplementerIds.map(id => { const user = users.find(u => u.id === id); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
             const dateValue = getDateValue('ev');
             if (!dateValue) { showErrorModal('تنبيه', 'الرجاء اختيار التاريخ'); return; }
-            const body = { domainId: parseInt(document.getElementById('domainSelect').value), standardId: document.getElementById('standardSelect').value, indicatorId: document.getElementById('indicatorSelect').value, title: document.getElementById('evTitle').value, description: document.getElementById('evDesc').value, beneficiaries: document.getElementById('evBeneficiaries').value, implementers, date: dateValue, images, pdf: pdfData, userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
+            showPrintProgressModal('جاري رفع الملفات...');
+            const totalFiles = Math.min(filesInput.length, 4) + (pdfInput ? 1 : 0);
+            let uploaded = 0;
             try {
+                for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
+                    const key = await uploadFileToR2(filesInput[i], 'new', filesInput[i].type || 'image/jpeg');
+                    imageKeys.push(key);
+                    uploaded++;
+                    updatePrintProgress(uploaded, totalFiles, `جاري رفع الصور (${uploaded}/${totalFiles})`);
+                }
+                if (pdfInput) {
+                    pdfKey = await uploadFileToR2(pdfInput, 'new', 'application/pdf');
+                    uploaded++;
+                    updatePrintProgress(uploaded, totalFiles, `جاري رفع PDF (${uploaded}/${totalFiles})`);
+                }
+                setTimeout(() => hidePrintProgressModal(), 300);
+                const body = { domainId: parseInt(document.getElementById('domainSelect').value), standardId: document.getElementById('standardSelect').value, indicatorId: document.getElementById('indicatorSelect').value, title: document.getElementById('evTitle').value, description: document.getElementById('evDesc').value, beneficiaries: document.getElementById('evBeneficiaries').value, implementers, date: dateValue, images: imageKeys, pdf: pdfKey, userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
                 const result = await apiCall('/api/evidences', { method: 'POST', body });
                 if (result.success) {
-                    if (pendingParts.length > 0) {
-                        for (const part of pendingParts) {
-                            await apiCall('/api/appendices', { method: 'POST', body: { evidenceId: result.id, images: [], pdfs: [part.data], userId: currentUser.id, userName: currentUser.name } });
-                        }
-                    }
                     await loadEvidencesFromAPI();
-                    showSuccessModal('تم الحفظ', `تم حفظ الشاهد${pendingParts.length > 0 ? ' (PDF مقسّم إلى ' + (pendingParts.length + 1) + ' أجزاء)' : ''}`, () => showPreviousEvidences());
+                    showSuccessModal('تم الحفظ', 'تم حفظ الشاهد بنجاح', () => showPreviousEvidences());
                 }
-            } catch (error) { showErrorModal('خطأ', 'تعذر الحفظ'); }
+            } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر الحفظ: ' + error.message); }
         }
 
         function showPreviousEvidences() {
@@ -1583,14 +1445,14 @@
             const canPrint = currentUser.role !== 'external_committee' && (evidence.status === 'approved' || evidence.status === 'pending');
             const implementersNames = evidence.implementers && evidence.implementers.length > 0 ? evidence.implementers.map(imp => imp.userName).join('، ') : evidence.userName;
             const pdfTasks = [];
-            if (evidence.pdf) pdfTasks.push({ cid: `viewPdfContainer_${evidence.id}`, pdfData: evidence.pdf });
+            if (evidence.pdf) pdfTasks.push({ cid: `viewPdfContainer_${evidence.id}`, pdfData: getFileUrl(evidence.pdf) });
             let appendixPdfHtml = '';
             if (evidence.appendices && evidence.appendices.length > 0) {
                 evidence.appendices.forEach((app, appIdx) => {
                     if (app.pdfs && app.pdfs.length > 0) {
                         app.pdfs.forEach((pdfData, pdfIdx) => {
                             const cid = `viewAppendixPdf_${evidence.id}_${appIdx}_${pdfIdx}`;
-                            pdfTasks.push({ cid, pdfData });
+                            pdfTasks.push({ cid, pdfData: getFileUrl(pdfData) });
                             appendixPdfHtml += `<div class="pdf-pages-container" id="${cid}"></div>`;
                         });
                     }
@@ -1627,7 +1489,7 @@
             document.getElementById('evidenceContent').innerHTML = html;
             let completed = 0;
             for (const task of pdfTasks) {
-                await renderPdfToCanvas(task.cid, task.pdfData, task.cid);
+                await renderPdfFromUrl(task.cid, task.pdfData);
                 completed++;
                 updateProgressBar('viewPdfProgress', completed, pdfTasks.length);
             }
@@ -1708,14 +1570,14 @@
             const title = document.getElementById('editEvTitle').value.trim();
             if (!title) { showErrorModal('تنبيه', 'الرجاء إدخال العنوان'); return; }
             const pdfInput = document.getElementById('editEvPdf').files[0];
-            let pdfData = evidence.pdf;
+            let pdfKey = evidence.pdf;
             if (pdfInput) {
-                try {
-                    const result = await processPDF(pdfInput);
-                    pdfData = result.parts[0].data;
-                } catch (err) { showErrorModal('خطأ', 'تعذر معالجة PDF: ' + err.message); return; }
+                showPrintProgressModal('جاري رفع PDF...');
+                try { pdfKey = await uploadFileToR2(pdfInput, id, 'application/pdf'); }
+                catch (err) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر رفع PDF: ' + err.message); return; }
+                hidePrintProgressModal();
             }
-            const body = { domainId: evidence.domainId, standardId: evidence.standardId, indicatorId: evidence.indicatorId, title, description: evidence.description, beneficiaries: evidence.beneficiaries, date: evidence.date, pdf: pdfData, implementers: evidence.implementers, images: evidence.images, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
+            const body = { domainId: evidence.domainId, standardId: evidence.standardId, indicatorId: evidence.indicatorId, title, description: evidence.description, beneficiaries: evidence.beneficiaries, date: evidence.date, pdf: pdfKey, implementers: evidence.implementers, images: evidence.images, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
             try {
                 const result = await apiCall(`/api/evidences/${id}`, { method: 'PUT', body });
                 if (result.success) {
@@ -1741,51 +1603,45 @@
             e.preventDefault();
             const evidence = evidences.find(ev => ev.id === id);
             if (!evidence) return;
-            const toBase64 = file => compressImage(file);
             const filesInput = document.getElementById('editEvImages').files;
-            let images = evidence.images;
-            if (filesInput.length > 0) { images = []; for (let i = 0; i < Math.min(filesInput.length, 4); i++) images.push(await toBase64(filesInput[i])); }
+            let imageKeys = evidence.images;
             const pdfInput = document.getElementById('editEvPdf').files[0];
-            let pdfData = evidence.pdf;
-            let pendingParts = [];
-            if (pdfInput) {
-                try {
-                    const result = await processPDF(pdfInput);
-                    pdfData = result.parts[0].data;
-                    if (result.type === 'split') pendingParts = result.parts.slice(1);
-                } catch (err) { showErrorModal('خطأ', 'تعذر معالجة PDF: ' + err.message); return; }
-            }
+            let pdfKey = evidence.pdf;
             const implementersSelect = document.getElementById('editEvImplementers');
             const selectedImplementerIds = Array.from(implementersSelect.selectedOptions).map(opt => parseInt(opt.value));
             if (!selectedImplementerIds.includes(evidence.userId)) selectedImplementerIds.push(evidence.userId);
             const implementers = selectedImplementerIds.map(uid => { const user = users.find(u => u.id === uid); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
             const dateValue = getDateValue('editEv');
             if (!dateValue) { showErrorModal('تنبيه', 'الرجاء اختيار التاريخ'); return; }
-            const body = { domainId: evidence.domainId, standardId: evidence.standardId, indicatorId: evidence.indicatorId, title: document.getElementById('editEvTitle').value, description: document.getElementById('editEvDesc').value, beneficiaries: document.getElementById('editEvBeneficiaries').value, implementers, date: dateValue, images, pdf: pdfData, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
+            showPrintProgressModal('جاري رفع الملفات...');
             try {
+                if (filesInput.length > 0) {
+                    imageKeys = [];
+                    for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
+                        const key = await uploadFileToR2(filesInput[i], id, filesInput[i].type || 'image/jpeg');
+                        imageKeys.push(key);
+                        updatePrintProgress(i + 1, Math.min(filesInput.length, 4) + (pdfInput ? 1 : 0), `رفع الصور (${i+1})`);
+                    }
+                }
+                if (pdfInput) {
+                    pdfKey = await uploadFileToR2(pdfInput, id, 'application/pdf');
+                }
+                hidePrintProgressModal();
+                const body = { domainId: evidence.domainId, standardId: evidence.standardId, indicatorId: evidence.indicatorId, title: document.getElementById('editEvTitle').value, description: document.getElementById('editEvDesc').value, beneficiaries: document.getElementById('editEvBeneficiaries').value, implementers, date: dateValue, images: imageKeys, pdf: pdfKey, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
                 const result = await apiCall(`/api/evidences/${id}`, { method: 'PUT', body });
                 if (result.success) {
-                    if (pendingParts.length > 0) {
-                        for (const part of pendingParts) {
-                            await apiCall('/api/appendices', { method: 'POST', body: { evidenceId: id, images: [], pdfs: [part.data], userId: currentUser.id, userName: currentUser.name } });
-                        }
-                    }
                     await loadEvidencesFromAPI();
                     showSuccessModal('تم التحديث', 'تم تحديث الشاهد', () => showPreviousEvidences());
                 }
-            } catch (error) { showErrorModal('خطأ', 'تعذر التحديث'); }
+            } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر التحديث: ' + error.message); }
         }
 
-        async function renderPdfToCanvas(evidenceId, pdfData, containerId) {
+        async function renderPdfFromUrl(containerId, url) {
             try {
                 const container = document.getElementById(containerId);
                 if (!container) return;
                 container.innerHTML = '';
-                const base64 = pdfData.split(',')[1];
-                const binaryString = atob(base64);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+                const pdf = await pdfjsLib.getDocument(url).promise;
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
                     const viewport = page.getViewport({ scale: 1.5 });
@@ -1798,6 +1654,7 @@
                 }
             } catch (error) { console.error('خطأ في عرض PDF:', error); }
         }
+
         async function printSingleEvidence(evidenceId) {
             const evidence = evidences.find(e => e.id === evidenceId);
             if (!evidence) return;
@@ -1818,7 +1675,7 @@
                     if (app.pdfs && app.pdfs.length > 0) {
                         app.pdfs.forEach((pdfData, pdfIdx) => {
                             const cid = `printAppendixPdf_${evidence.id}_${appIdx}_${pdfIdx}`;
-                            appendixPdfMap.push({ cid, pdfData });
+                            appendixPdfMap.push({ cid, pdfUrl: getFileUrl(pdfData) });
                             appendixPdfPages += `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" id="${cid}"></div></div>`;
                         });
                     }
@@ -1827,84 +1684,37 @@
             updatePrintProgress(1, totalPdfs + 1, 'جاري فتح نافذة الطباعة...');
             const printWindow = window.open('', '_blank', 'width=800,height=600');
             if (!printWindow) { hidePrintProgressModal(); showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة'); return; }
-            if (evidence.readyMade) {
-                const appendixImagesPages = buildReadyMadeAppendixImagesPages(evidence, 'evidence-print-page');
-                printWindow.document.write(`
-                    <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
-                    <title>طباعة شاهد جاهز</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-                    <style>
-                        * { margin: 0; padding: 0; box-sizing: border-box; }
-                        body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 0; }
-                        .pdf-container { margin: 0; padding: 0; }
-                        .pdf-container canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; page-break-after: always; page-break-inside: avoid; }
-                        .pdf-container canvas:last-child { page-break-after: auto; }
-                        .evidence-print-page { max-width: 800px; margin: 0 auto 20px; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
-                        .evidence-print-page.pdf-only-page { page-break-after: auto !important; page-break-before: auto !important; page-break-inside: avoid !important; padding: 0 !important; margin: 0 !important; border: none !important; border-radius: 0 !important; min-height: auto !important; background: transparent !important; box-shadow: none !important; }
-                        .images-grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 0; max-width: 500px; margin-left: auto; margin-right: auto; }
-                        .images-grid-2, .images-grid-3, .images-grid-4, .images-grid-5, .images-grid-6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 0; }
-                        .media-image img { width: 100%; height: 300px; object-fit: contain; background: #f8f9fa; border-radius: 8px; border: 1px solid #E2E8F0; }
-                        @media print { body { padding: 0; } .evidence-print-page { border: none; padding: 20px; } .evidence-print-page.pdf-only-page { padding: 0 !important; margin: 0 !important; } .media-image img { height: 300px; } }
-                    </style></head><body>
-                    <div class="pdf-container" id="readyPdfContainer"></div>
-                    ${appendixImagesPages}
-                    ${appendixPdfPages}
-                    </body></html>
-                `);
-                printWindow.document.close();
-                printWindow.addEventListener('load', async function() {
-                    try {
-                        let completed = 1;
-                        const pdfContainer = printWindow.document.getElementById('readyPdfContainer');
-                        if (pdfContainer && evidence.pdf) {
-                            const base64 = evidence.pdf.split(',')[1];
-                            const binaryString = atob(base64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                const page = await pdf.getPage(pageNum);
-                                const viewport = page.getViewport({ scale: 1.5 });
-                                const canvas = printWindow.document.createElement('canvas');
-                                const context = canvas.getContext('2d');
-                                canvas.width = viewport.width; canvas.height = viewport.height;
-                                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                pdfContainer.appendChild(canvas);
-                            }
-                        }
-                        completed++;
-                        updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل PDF (${completed}/${totalPdfs + 1})`);
-                        for (const mapping of appendixPdfMap) {
-                            const container = printWindow.document.getElementById(mapping.cid);
-                            if (container) {
-                                const base64 = mapping.pdfData.split(',')[1];
-                                const binaryString = atob(base64);
-                                const bytes = new Uint8Array(binaryString.length);
-                                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                                const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                    const page = await pdf.getPage(pageNum);
+            const baseHref = new URL(API_BASE).origin + '/';
+            const renderScript = `
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>
+                <script>
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    async function renderAllPdfs() {
+                        const containers = document.querySelectorAll('[data-pdf-url]');
+                        for (const c of containers) {
+                            try {
+                                const pdf = await pdfjsLib.getDocument(c.getAttribute('data-pdf-url')).promise;
+                                for (let p = 1; p <= pdf.numPages; p++) {
+                                    const page = await pdf.getPage(p);
                                     const viewport = page.getViewport({ scale: 1.5 });
-                                    const canvas = printWindow.document.createElement('canvas');
-                                    const context = canvas.getContext('2d');
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
                                     canvas.width = viewport.width; canvas.height = viewport.height;
-                                    await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                    container.appendChild(canvas);
+                                    await page.render({ canvasContext: ctx, viewport }).promise;
+                                    c.appendChild(canvas);
                                 }
-                            }
-                            completed++;
-                            updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل المرفقات (${completed}/${totalPdfs + 1})`);
+                            } catch(e) { console.error(e); }
                         }
-                        updatePrintProgress(totalPdfs + 1, totalPdfs + 1, 'اكتمل! جاري فتح نافذة الطباعة...');
-                        setTimeout(() => { hidePrintProgressModal(); printWindow.print(); }, 500);
-                    } catch (error) { console.error('خطأ في تحميل PDF:', error); hidePrintProgressModal(); printWindow.print(); }
-                });
-                return;
-            }
-            const { firstPageImages, extraPagesHtml, totalImages } = buildUnifiedImagesForSingleEvidence(evidence);
-            const firstPageGridHtml = buildFirstPageImagesGrid(firstPageImages);
-            const showSignatureInFirstPage = totalImages <= 2;
-            const signatureFirstPage = showSignatureInFirstPage ? `<div class="signature">مدير المدرسة: أ / عمر عبد الله الحماد</div>` : '';
+                        window.print();
+                    }
+                    window.addEventListener('load', () => setTimeout(renderAllPdfs, 500));
+                <\/script>
+            `;
+            let pdfDataAttr = '';
+            if (evidence.pdf) pdfDataAttr = `data-pdf-url="${getFileUrl(evidence.pdf)}"`;
+            appendixPdfMap.forEach(m => {
+                const el = printWindow.document.getElementById(m.cid);
+            });
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
                 <title>طباعة شاهد - ${evidence.title}</title>
@@ -1913,7 +1723,7 @@
                     * { margin: 0; padding: 0; box-sizing: border-box; }
                     body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 20px; }
                     .evidence-print-page { max-width: 800px; margin: 0 auto 20px; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; position: relative; }
-                    .evidence-print-page.pdf-only-page { page-break-after: auto !important; page-break-before: auto !important; page-break-inside: avoid !important; padding: 0 !important; margin: 0 !important; border: none !important; border-radius: 0 !important; min-height: auto !important; background: transparent !important; box-shadow: none !important; }
+                    .evidence-print-page.pdf-only-page { page-break-after: auto !important; page-break-before: auto !important; padding: 0 !important; margin: 0 !important; border: none !important; }
                     .print-header { text-align: center; border-bottom: 3px solid #3A2375; padding-bottom: 15px; margin-bottom: 25px; }
                     .print-header h1 { color: #3A2375; font-size: 28px; margin-bottom: 5px; }
                     .print-header p { color: #64748B; font-size: 14px; }
@@ -1931,8 +1741,7 @@
                     .status-pending { background: #E77B26; }
                     .pdf-container { margin-top: 0; }
                     .pdf-container canvas { max-width: 100%; height: auto; margin: 10px 0; border: 1px solid #E2E8F0; page-break-after: always; page-break-inside: avoid; }
-                    .pdf-container canvas:last-child { page-break-after: auto; }
-                    @media print { body { padding: 0; } .evidence-print-page { border: none; padding: 20px; } .evidence-print-page.pdf-only-page { padding: 0 !important; margin: 0 !important; } .status-approved, .status-pending { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .media-image img { height: 240px; } }
+                    @media print { body { padding: 0; } .evidence-print-page { border: none; padding: 20px; } .evidence-print-page.pdf-only-page { padding: 0 !important; margin: 0 !important; } .status-approved, .status-pending { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
                 </style></head><body>
                 <div class="evidence-print-page">
                     <div class="print-header"><h1>ملف الإنجاز</h1><p>شاهد معتمد - ${currentUser.name}</p></div>
@@ -1947,64 +1756,21 @@
                         <tr><th>اليوم والتاريخ</th><td>${evidence.date || '-'}</td></tr>
                         <tr><th>الحالة</th><td><span class="status-badge ${evidence.status === 'approved' ? 'status-approved' : 'status-pending'}">${evidence.status === 'approved' ? 'معتمد' : 'قيد الاعتماد'}</span></td></tr>
                     </table>
-                    ${firstPageGridHtml}
-                    ${signatureFirstPage}
+                    <div id="mainImagesContainer"></div>
                 </div>
-                ${extraPagesHtml}
-                ${evidence.pdf ? `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" id="pdfContainer"></div></div>` : ''}
-                ${appendixPdfPages}
+                ${evidence.pdf ? `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${getFileUrl(evidence.pdf)}"></div></div>` : ''}
+                ${appendixPdfMap.map(m => `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${m.pdfUrl}"></div></div>`).join('')}
+                ${renderScript}
                 </body></html>
             `);
             printWindow.document.close();
-            printWindow.addEventListener('load', async function() {
-                try {
-                    let completed = 1;
-                    if (evidence.pdf) {
-                        const pdfContainer = printWindow.document.getElementById('pdfContainer');
-                        if (pdfContainer) {
-                            const base64 = evidence.pdf.split(',')[1];
-                            const binaryString = atob(base64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                const page = await pdf.getPage(pageNum);
-                                const viewport = page.getViewport({ scale: 1.5 });
-                                const canvas = printWindow.document.createElement('canvas');
-                                const context = canvas.getContext('2d');
-                                canvas.width = viewport.width; canvas.height = viewport.height;
-                                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                pdfContainer.appendChild(canvas);
-                            }
-                        }
-                        completed++;
-                        updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل PDF الأصلي (${completed}/${totalPdfs + 1})`);
-                    }
-                    for (const mapping of appendixPdfMap) {
-                        const container = printWindow.document.getElementById(mapping.cid);
-                        if (container) {
-                            const base64 = mapping.pdfData.split(',')[1];
-                            const binaryString = atob(base64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                const page = await pdf.getPage(pageNum);
-                                const viewport = page.getViewport({ scale: 1.5 });
-                                const canvas = printWindow.document.createElement('canvas');
-                                const context = canvas.getContext('2d');
-                                canvas.width = viewport.width; canvas.height = viewport.height;
-                                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                container.appendChild(canvas);
-                            }
-                        }
-                        completed++;
-                        updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل المرفقات (${completed}/${totalPdfs + 1})`);
-                    }
-                    updatePrintProgress(totalPdfs + 1, totalPdfs + 1, 'اكتمل! جاري فتح نافذة الطباعة...');
-                    setTimeout(() => { hidePrintProgressModal(); printWindow.print(); }, 500);
-                } catch (error) { console.error('خطأ في تحميل PDF:', error); hidePrintProgressModal(); printWindow.print(); }
-            });
+            const allImgs = collectAllEvidenceImages(evidence);
+            const mainImgsContainer = printWindow.document.getElementById('mainImagesContainer');
+            if (mainImgsContainer && allImgs.length > 0) {
+                const gridClass = allImgs.length === 1 ? 'images-grid-1' : 'images-grid-2';
+                mainImgsContainer.innerHTML = `<div class="${gridClass}">${allImgs.map(u => `<div class="media-image"><img src="${u}"></div>`).join('')}</div>`;
+            }
+            setTimeout(() => hidePrintProgressModal(), 1500);
         }
 
         async function printSelectedEvidences() {
@@ -2012,211 +1778,69 @@
             document.querySelectorAll('.print-evidence-checkbox:checked').forEach(cb => selectedIds.push(parseInt(cb.dataset.evidenceId)));
             if (selectedIds.length === 0) { showErrorModal('تنبيه', 'الرجاء تحديد شاهد واحد على الأقل للطباعة'); return; }
             const selectedEvidences = selectedIds.map(id => evidences.find(e => e.id === id)).filter(e => e);
-            const sortedEvidences = selectedEvidences.sort((a, b) => {
-                const domainOrder = [1, 2, 3, 4];
-                const domainDiff = domainOrder.indexOf(a.domainId) - domainOrder.indexOf(b.domainId);
-                if (domainDiff !== 0) return domainDiff;
-                const standardCompare = a.standardId.localeCompare(b.standardId);
-                if (standardCompare !== 0) return standardCompare;
-                const indicatorCompare = a.indicatorId.localeCompare(b.indicatorId);
-                if (indicatorCompare !== 0) return indicatorCompare;
-                const dateKeyA = getDateSortKey(a.date);
-                const dateKeyB = getDateSortKey(b.date);
-                if (dateKeyA !== dateKeyB) return dateKeyA - dateKeyB;
-                return 0;
-            });
-            let totalPdfs = 0;
-            sortedEvidences.forEach(ev => {
-                if (ev.pdf) totalPdfs++;
-                if (ev.appendices) ev.appendices.forEach(app => { if (app.pdfs) totalPdfs += app.pdfs.length; });
-            });
-            showPrintProgressModal(`جاري تجهيز ${sortedEvidences.length} شاهد للطباعة...`);
-            updatePrintProgress(0, totalPdfs + 1);
+            showPrintProgressModal(`جاري تجهيز ${selectedEvidences.length} شاهد للطباعة...`);
             const printWindow = window.open('', '_blank', 'width=900,height=700');
             if (!printWindow) { hidePrintProgressModal(); showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة'); return; }
-            let reportContent = '';
-            reportContent += `<div class="report-cover"><h1>ملف الإنجاز</h1><h2>${currentUser.name}</h2><p>${currentUser.roleLabel}</p><p>عدد الشواهد: ${sortedEvidences.length}</p><p>تاريخ الإنشاء: ${new Date().toLocaleDateString('ar-SA')}</p></div>`;
-            reportContent += `<div class="report-toc"><h2>فهرس المحتويات</h2><table class="toc-table"><thead><tr><th>#</th><th>عنوان الشاهد</th><th>المجال</th><th>المنفذون</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody>`;
-            sortedEvidences.forEach((ev, index) => {
-                const domain = domains.find(d => d.id === ev.domainId);
-                const statusLabel = ev.status === 'approved' ? 'معتمد' : 'قيد الاعتماد';
-                const implementersNames = ev.implementers && ev.implementers.length > 0 ? ev.implementers.map(imp => imp.userName).join('، ') : ev.userName;
-                reportContent += `<tr><td>${index + 1}</td><td>${ev.title}</td><td>${domain?.name || 'غير محدد'}</td><td>${implementersNames}</td><td>${ev.date || '-'}</td><td>${statusLabel}</td></tr>`;
-            });
-            reportContent += `</tbody></table></div>`;
-            const appendixPdfMappings = [];
-            const readyPdfMappings = [];
-            for (const ev of sortedEvidences) {
+            let reportContent = `<div class="report-cover"><h1>ملف الإنجاز</h1><h2>${currentUser.name}</h2><p>عدد الشواهد: ${selectedEvidences.length}</p></div>`;
+            selectedEvidences.forEach((ev) => {
                 const domain = domains.find(d => d.id === ev.domainId);
                 const standard = domain?.standards.find(s => s.id === ev.standardId);
                 const indicator = standard?.indicators.find(i => i.id === ev.indicatorId);
                 const implementersNames = ev.implementers && ev.implementers.length > 0 ? ev.implementers.map(imp => imp.userName).join('، ') : ev.userName;
-                if (ev.readyMade) {
-                    if (ev.pdf) {
-                        const cid = `readyPdf_${ev.id}`;
-                        readyPdfMappings.push({ containerId: cid, pdfData: ev.pdf });
-                        reportContent += `<div class="evidence-page pdf-only-page"><div class="pdf-container" id="${cid}"></div></div>`;
-                    }
-                    const appendixImagesPages = buildReadyMadeAppendixImagesPages(ev, 'evidence-page');
-                    reportContent += appendixImagesPages;
-                    if (ev.appendices && ev.appendices.length > 0) {
-                        ev.appendices.forEach((app, appIdx) => {
-                            if (app.pdfs && app.pdfs.length > 0) {
-                                app.pdfs.forEach((pdfData, pdfIdx) => {
-                                    const cid = `readyAppendixPdf_${ev.id}_${appIdx}_${pdfIdx}`;
-                                    appendixPdfMappings.push({ containerId: cid, pdfData });
-                                    reportContent += `<div class="evidence-page pdf-only-page"><div class="pdf-container" id="${cid}"></div></div>`;
-                                });
-                            }
-                        });
-                    }
-                    continue;
-                }
-                const { firstPageImages, extraPagesHtml } = buildUnifiedImagesForReport(ev);
-                const firstPageGridHtml = buildFirstPageImagesGrid(firstPageImages);
-                let appendixPdfPages = '';
-                if (ev.appendices && ev.appendices.length > 0) {
-                    ev.appendices.forEach((app, appIdx) => {
-                        if (app.pdfs && app.pdfs.length > 0) {
-                            app.pdfs.forEach((pdfData, pdfIdx) => {
-                                const cid = `appendixPdf_${ev.id}_${appIdx}_${pdfIdx}`;
-                                appendixPdfMappings.push({ containerId: cid, pdfData });
-                                appendixPdfPages += `<div class="evidence-page pdf-only-page"><div class="pdf-container" id="${cid}"></div></div>`;
-                            });
-                        }
-                    });
-                }
-                reportContent += `
-                    <div class="evidence-page">
-                        <div class="evidence-title">${ev.title}</div>
-                        <table class="info-table">
-                            <tr><th>المجال</th><td>${domain?.name || 'غير محدد'}</td></tr>
-                            <tr><th>المعيار</th><td>${standard?.name || 'غير محدد'}</td></tr>
-                            <tr><th>المؤشر</th><td>${indicator?.name || 'غير محدد'}</td></tr>
-                            <tr><th>وصف النشاط وأهدافه</th><td>${ev.description || 'لا يوجد'}</td></tr>
-                            <tr><th>المستفيدون</th><td>${ev.beneficiaries || 'لا يوجد'}</td></tr>
-                            <tr><th>المنفذون</th><td>${implementersNames}</td></tr>
-                            <tr><th>اليوم والتاريخ</th><td>${ev.date || '-'}</td></tr>
-                            <tr><th>الحالة</th><td><span class="status-badge ${ev.status === 'approved' ? 'status-approved' : 'status-pending'}">${ev.status === 'approved' ? 'معتمد' : 'قيد الاعتماد'}</span></td></tr>
-                        </table>
-                        ${firstPageGridHtml}
-                        ${ev.pdf ? `<div class="pdf-container" id="pdfContainer_${ev.id}"></div>` : ''}
-                        <div class="signature">مدير المدرسة: أ / عمر عبد الله الحماد</div>
-                    </div>
-                    ${extraPagesHtml}
-                    ${appendixPdfPages}
-                `;
-            }
+                const allImgs = collectAllEvidenceImages(ev);
+                const imgsHtml = allImgs.length > 0 ? `<div class="${allImgs.length === 1 ? 'images-grid-1' : 'images-grid-2'}">${allImgs.map(u => `<div class="media-image"><img src="${u}"></div>`).join('')}</div>` : '';
+                reportContent += `<div class="evidence-page"><div class="evidence-title">${ev.title}</div><table class="info-table"><tr><th>المجال</th><td>${domain?.name || '-'}</td></tr><tr><th>المعيار</th><td>${standard?.name || '-'}</td></tr><tr><th>المؤشر</th><td>${indicator?.name || '-'}</td></tr><tr><th>الوصف</th><td>${ev.description || '-'}</td></tr><tr><th>المستفيدون</th><td>${ev.beneficiaries || '-'}</td></tr><tr><th>المنفذون</th><td>${implementersNames}</td></tr><tr><th>التاريخ</th><td>${ev.date || '-'}</td></tr></table>${imgsHtml}</div>`;
+                if (ev.pdf) reportContent += `<div class="evidence-page pdf-only-page"><div class="pdf-container" data-pdf-url="${getFileUrl(ev.pdf)}"></div></div>`;
+                if (ev.appendices) ev.appendices.forEach(app => { if (app.pdfs) app.pdfs.forEach(p => { reportContent += `<div class="evidence-page pdf-only-page"><div class="pdf-container" data-pdf-url="${getFileUrl(p)}"></div></div>`; }); });
+            });
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
                 <title>ملف الإنجاز - ${currentUser.name}</title>
                 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>
+                <script>
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    async function renderAllPdfs() {
+                        const containers = document.querySelectorAll('[data-pdf-url]');
+                        for (const c of containers) {
+                            try {
+                                const pdf = await pdfjsLib.getDocument(c.getAttribute('data-pdf-url')).promise;
+                                for (let p = 1; p <= pdf.numPages; p++) {
+                                    const page = await pdf.getPage(p);
+                                    const viewport = page.getViewport({ scale: 1.5 });
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    canvas.width = viewport.width; canvas.height = viewport.height;
+                                    await page.render({ canvasContext: ctx, viewport }).promise;
+                                    c.appendChild(canvas);
+                                }
+                            } catch(e) { console.error(e); }
+                        }
+                        window.print();
+                    }
+                    window.addEventListener('load', () => setTimeout(renderAllPdfs, 500));
+                <\/script>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Cairo', sans-serif; direction: rtl; text-align: right; background: white; padding: 20px; }
+                    body { font-family: 'Cairo', sans-serif; direction: rtl; padding: 20px; }
                     .report-cover { text-align: center; padding: 60px 40px; background: linear-gradient(135deg, #3A2375, #6B4897); color: white; border-radius: 16px; margin-bottom: 30px; page-break-after: always; }
                     .report-cover h1 { font-size: 40px; margin-bottom: 20px; font-weight: 800; }
-                    .report-cover h2 { font-size: 28px; margin-bottom: 10px; }
-                    .report-cover p { font-size: 16px; margin: 5px 0; opacity: 0.9; }
-                    .report-toc { padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
-                    .report-toc h2 { text-align: center; color: #3A2375; margin-bottom: 25px; font-size: 28px; border-bottom: 3px solid #C82269; padding-bottom: 10px; }
-                    .toc-table { width: 100%; border-collapse: collapse; }
-                    .toc-table th { background: #3A2375; color: white; padding: 12px; font-weight: 600; }
-                    .toc-table td { padding: 10px; border-bottom: 1px solid #E2E8F0; }
-                    .toc-table tr:nth-child(even) { background: #F8F9FA; }
-                    .evidence-page { max-width: 800px; margin: 0 auto 30px; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; position: relative; }
-                    .evidence-page.pdf-only-page { page-break-after: auto !important; page-break-before: auto !important; page-break-inside: avoid !important; padding: 0 !important; margin: 0 !important; border: none !important; border-radius: 0 !important; min-height: auto !important; background: transparent !important; box-shadow: none !important; }
+                    .report-cover h2 { font-size: 28px; }
+                    .evidence-page { max-width: 800px; margin: 0 auto 30px; padding: 40px; border: 2px solid #3A2375; border-radius: 12px; page-break-after: always; }
+                    .evidence-page.pdf-only-page { page-break-after: auto !important; padding: 0 !important; margin: 0 !important; border: none !important; }
                     .evidence-title { text-align: center; font-size: 22px; font-weight: 700; color: #C82269; margin-bottom: 25px; padding: 10px; background: #FFF0F5; border-radius: 8px; }
                     .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; line-height: 1.8; vertical-align: top; }
+                    .info-table th, .info-table td { border: 1px solid #E2E8F0; padding: 12px; }
                     .info-table th { background: #F4F5F8; width: 30%; font-weight: 600; color: #3A2375; }
-                    .info-table td { width: 70%; }
-                    .images-grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 15px; max-width: 500px; margin-left: auto; margin-right: auto; }
-                    .images-grid-2, .images-grid-3, .images-grid-4, .images-grid-5, .images-grid-6 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 15px; }
+                    .images-grid-1 { display: grid; grid-template-columns: 1fr; gap: 15px; max-width: 500px; margin: 0 auto; }
+                    .images-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
                     .media-image img { width: 100%; height: 300px; object-fit: contain; background: #f8f9fa; border-radius: 8px; border: 1px solid #E2E8F0; }
-                    .signature { margin-top: 40px; text-align: left; font-weight: 700; font-size: 15px; }
-                    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-weight: 600; font-size: 12px; color: white; }
-                    .status-approved { background: #27AE60; }
-                    .status-pending { background: #E77B26; }
-                    .pdf-container { margin: 0; padding: 0; }
-                    .pdf-container canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; page-break-after: always; page-break-inside: avoid; }
-                    .pdf-container canvas:last-child { page-break-after: auto; }
-                    @media print { body { padding: 0; } .report-cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; border-radius: 0; } .evidence-page { border: none; padding: 20px; } .evidence-page.pdf-only-page { padding: 0 !important; margin: 0 !important; border: none !important; page-break-after: auto !important; page-break-before: auto !important; page-break-inside: avoid !important; min-height: auto !important; } .status-approved, .status-pending { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .media-image img { height: 300px; } }
+                    .pdf-container canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; page-break-after: always; }
+                    @media print { body { padding: 0; } .evidence-page { border: none; padding: 20px; } .evidence-page.pdf-only-page { padding: 0 !important; margin: 0 !important; } }
                 </style></head><body>${reportContent}</body></html>
             `);
             printWindow.document.close();
-            printWindow.addEventListener('load', async function() {
-                try {
-                    let completed = 0;
-                    for (const ev of sortedEvidences) {
-                        if (ev.pdf && !ev.readyMade) {
-                            const pdfContainer = printWindow.document.getElementById(`pdfContainer_${ev.id}`);
-                            if (pdfContainer) {
-                                const base64 = ev.pdf.split(',')[1];
-                                const binaryString = atob(base64);
-                                const bytes = new Uint8Array(binaryString.length);
-                                for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                                const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                    const page = await pdf.getPage(pageNum);
-                                    const viewport = page.getViewport({ scale: 1.5 });
-                                    const canvas = printWindow.document.createElement('canvas');
-                                    const context = canvas.getContext('2d');
-                                    canvas.width = viewport.width; canvas.height = viewport.height;
-                                    await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                    pdfContainer.appendChild(canvas);
-                                }
-                            }
-                            completed++;
-                            updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل PDF (${completed}/${totalPdfs + 1})`);
-                        }
-                    }
-                    for (const mapping of readyPdfMappings) {
-                        const container = printWindow.document.getElementById(mapping.containerId);
-                        if (container) {
-                            const base64 = mapping.pdfData.split(',')[1];
-                            const binaryString = atob(base64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                const page = await pdf.getPage(pageNum);
-                                const viewport = page.getViewport({ scale: 1.5 });
-                                const canvas = printWindow.document.createElement('canvas');
-                                const context = canvas.getContext('2d');
-                                canvas.width = viewport.width; canvas.height = viewport.height;
-                                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                container.appendChild(canvas);
-                            }
-                        }
-                        completed++;
-                        updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل PDF (${completed}/${totalPdfs + 1})`);
-                    }
-                    for (const mapping of appendixPdfMappings) {
-                        const container = printWindow.document.getElementById(mapping.containerId);
-                        if (container) {
-                            const base64 = mapping.pdfData.split(',')[1];
-                            const binaryString = atob(base64);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-                            const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                const page = await pdf.getPage(pageNum);
-                                const viewport = page.getViewport({ scale: 1.5 });
-                                const canvas = printWindow.document.createElement('canvas');
-                                const context = canvas.getContext('2d');
-                                canvas.width = viewport.width; canvas.height = viewport.height;
-                                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                                container.appendChild(canvas);
-                            }
-                        }
-                        completed++;
-                        updatePrintProgress(completed, totalPdfs + 1, `جاري تحميل المرفقات (${completed}/${totalPdfs + 1})`);
-                    }
-                    updatePrintProgress(totalPdfs + 1, totalPdfs + 1, 'اكتمل! جاري فتح نافذة الطباعة...');
-                    setTimeout(() => { hidePrintProgressModal(); printWindow.print(); }, 700);
-                } catch (error) { console.error('خطأ في تحميل PDF:', error); hidePrintProgressModal(); printWindow.print(); }
-            });
+            setTimeout(() => hidePrintProgressModal(), 1500);
         }
 
         function showReports() {
@@ -2355,7 +1979,6 @@
             let html = '';
             let hasData = false;
             html += `<div class="no-print" style="margin-bottom: 20px; text-align: left; display: flex; gap: 10px; flex-wrap: wrap;"><button class="btn-etec-primary" onclick="printReport()"><i class="fas fa-print"></i> طباعة التقرير</button><button class="btn-etec-secondary" onclick="showReportBuilder()"><i class="fas fa-arrow-right"></i> العودة للاختيار</button></div>`;
-            const pdfTasks = [];
             domains.forEach(d => {
                 let domainHasEvidences = false;
                 d.standards.forEach(s => {
@@ -2377,63 +2000,11 @@
                                     html += `<div class="report-page cover-indicator"><h2>${s.name}</h2><h3>${ind.name}</h3></div>`;
                                     evs.forEach(ev => {
                                         const implementersNames = ev.implementers && ev.implementers.length > 0 ? ev.implementers.map(imp => imp.userName).join('، ') : ev.userName;
-                                        if (ev.readyMade) {
-                                            if (ev.pdf) {
-                                                const cid = `reportReadyPdf_${ev.id}`;
-                                                pdfTasks.push({ cid, pdfData: ev.pdf });
-                                                html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
-                                            }
-                                            const appendixImagesPages = buildReadyMadeAppendixImagesPages(ev, 'report-page');
-                                            html += appendixImagesPages;
-                                            if (ev.appendices && ev.appendices.length > 0) {
-                                                ev.appendices.forEach((app, appIdx) => {
-                                                    if (app.pdfs && app.pdfs.length > 0) {
-                                                        app.pdfs.forEach((pdfData, pdfIdx) => {
-                                                            const cid = `reportReadyAppendixPdf_${ev.id}_${appIdx}_${pdfIdx}`;
-                                                            pdfTasks.push({ cid, pdfData });
-                                                            html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
-                                                        });
-                                                    }
-                                                });
-                                            }
-                                            return;
-                                        }
-                                        const { firstPageImages, extraPagesHtml } = buildUnifiedImagesForReport(ev);
-                                        const firstPageGridHtml = buildFirstPageImagesGrid(firstPageImages);
-                                        html += `
-                                            <div class="report-page">
-                                                <div class="activity-report">
-                                                    <div>
-                                                        <div class="activity-title">${ev.title}</div>
-                                                        <table class="activity-table">
-                                                            <tr><th>وصف النشاط وأهدافه</th><td>${ev.description}</td></tr>
-                                                            <tr><th>المستفيدون</th><td>${ev.beneficiaries}</td></tr>
-                                                            <tr><th>المنفذون</th><td>${implementersNames}</td></tr>
-                                                            <tr><th>اليوم والتاريخ</th><td>${ev.date || '-'}</td></tr>
-                                                        </table>
-                                                        ${firstPageGridHtml}
-                                                    </div>
-                                                </div>
-                                                <div class="principal-signature">مدير المدرسة: أ / عمر عبد الله الحماد</div>
-                                            </div>
-                                        `;
-                                        html += extraPagesHtml;
-                                        if (ev.pdf) {
-                                            const cid = `reportPdfContainer_${ev.id}`;
-                                            pdfTasks.push({ cid, pdfData: ev.pdf });
-                                            html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
-                                        }
-                                        if (ev.appendices && ev.appendices.length > 0) {
-                                            ev.appendices.forEach((app, appIdx) => {
-                                                if (app.pdfs && app.pdfs.length > 0) {
-                                                    app.pdfs.forEach((pdfData, pdfIdx) => {
-                                                        const cid = `reportAppendixPdf_${ev.id}_${appIdx}_${pdfIdx}`;
-                                                        pdfTasks.push({ cid, pdfData });
-                                                        html += `<div class="report-page pdf-pages-container" id="${cid}"></div>`;
-                                                    });
-                                                }
-                                            });
-                                        }
+                                        const allImgs = collectAllEvidenceImages(ev);
+                                        const imgsHtml = allImgs.length > 0 ? `<div class="${allImgs.length === 1 ? 'images-grid-1' : 'images-grid-2'}">${allImgs.map(u => `<div class="media-image"><img src="${u}"></div>`).join('')}</div>` : '';
+                                        html += `<div class="report-page"><div class="activity-title">${ev.title}</div><table class="activity-table"><tr><th>وصف النشاط</th><td>${ev.description}</td></tr><tr><th>المستفيدون</th><td>${ev.beneficiaries}</td></tr><tr><th>المنفذون</th><td>${implementersNames}</td></tr><tr><th>التاريخ</th><td>${ev.date || '-'}</td></tr></table>${imgsHtml}</div>`;
+                                        if (ev.pdf) html += `<div class="report-page pdf-pages-container" data-pdf-url="${getFileUrl(ev.pdf)}"></div>`;
+                                        if (ev.appendices) ev.appendices.forEach(app => { if (app.pdfs) app.pdfs.forEach(p => { html += `<div class="report-page pdf-pages-container" data-pdf-url="${getFileUrl(p)}"></div>`; }); });
                                     });
                                 }
                             }
@@ -2441,20 +2012,8 @@
                     });
                 }
             });
-            if (!hasData) html += `<div class="etec-card" style="text-align: center; padding: 40px;"><h3 style="color: var(--etec-primary);">لا توجد شواهد معتمدة للمؤشرات المحددة</h3><button class="btn-etec-secondary" onclick="showReportBuilder()" style="margin-top: 15px;">العودة للاختيار</button></div>`;
-            let progressHtml = '';
-            if (pdfTasks.length > 0 && hasData) {
-                progressHtml = createProgressBar('reportPdfProgress', pdfTasks.length, 'جاري تحميل المرفقات في التقرير');
-                html = progressHtml + html;
-            }
+            if (!hasData) html += `<div class="etec-card" style="text-align: center; padding: 40px;"><h3 style="color: var(--etec-primary);">لا توجد شواهد معتمدة للمؤشرات المحددة</h3></div>`;
             document.getElementById('reportContent').innerHTML = html;
-            let completed = 0;
-            for (const task of pdfTasks) {
-                if (document.getElementById(task.cid)) await renderPdfToCanvas(task.cid, task.pdfData, task.cid);
-                completed++;
-                updateProgressBar('reportPdfProgress', completed, pdfTasks.length);
-            }
-            if (pdfTasks.length > 0) setTimeout(() => hideProgressBar('reportPdfProgress'), 800);
         }
 
         function printReport() { window.print(); }
@@ -2479,13 +2038,7 @@
                         else if (approvedCount <= 4) { statusLabel = 'متوسط'; statusClass = 'badge-medium'; }
                         else if (approvedCount === 5) { statusLabel = 'مرتفع'; statusClass = 'badge-high'; }
                         else { statusLabel = 'مرتفع جداً'; statusClass = 'badge-very-high'; }
-                        tableHTML += `<tr>
-                            <td data-label="المجال">${domain.name}</td>
-                            <td data-label="المعيار">${standard.name}</td>
-                            <td class="evidence-title-cell" data-label="المؤشر">${indicator.name}</td>
-                            <td data-label="عدد الشواهد المعتمدة" style="text-align: center;">${approvedCount}</td>
-                            <td class="status-cell" data-label="الحالة"><span class="badge-level ${statusClass}">${statusLabel}</span></td>
-                        </tr>`;
+                        tableHTML += `<tr><td data-label="المجال">${domain.name}</td><td data-label="المعيار">${standard.name}</td><td class="evidence-title-cell" data-label="المؤشر">${indicator.name}</td><td data-label="عدد الشواهد" style="text-align: center;">${approvedCount}</td><td class="status-cell" data-label="الحالة"><span class="badge-level ${statusClass}">${statusLabel}</span></td></tr>`;
                     });
                 });
             });
@@ -2502,26 +2055,8 @@
                 <div class="etec-card">
                     <div class="etec-card-header"><div class="etec-card-title">إدارة النسخ الاحتياطي</div></div>
                     <div style="display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
-                        <div class="etec-card" style="flex: 1; min-width: 250px; text-align: center; cursor: pointer;" onclick="exportBackup()">
-                            <i class="fas fa-download" style="font-size: 48px; color: var(--etec-primary);"></i>
-                            <h3>تصدير البيانات (JSON)</h3>
-                            <p style="color: var(--text-muted); margin-top: 10px;">حفظ نسخة من كل البيانات</p>
-                        </div>
-                        <div class="etec-card" style="flex: 1; min-width: 250px; text-align: center; cursor: pointer;" onclick="document.getElementById('importMergeFile').click()">
-                            <i class="fas fa-file-import" style="font-size: 48px; color: var(--etec-primary);"></i>
-                            <h3>استيراد ودمج</h3>
-                            <p style="color: var(--text-muted); margin-top: 10px;">إضافة البيانات من ملف (بدون حذف الحالي)</p>
-                            <input type="file" id="importMergeFile" accept=".json" style="display: none;" onchange="importMergeBackup(event)">
-                        </div>
-                    </div>
-                    <div style="margin-top: 20px; padding: 15px; background: #E8F5E9; border-right: 4px solid #27AE60; border-radius: 8px; font-size: 13px; color: #1F7A4C;">
-                        <strong><i class="fas fa-info-circle"></i> استيراد ودمج:</strong> يضيف البيانات من الملف فقط دون حذف البيانات الحالية.
-                        <ul style="margin-top: 8px; padding-right: 20px; line-height: 1.8;">
-                            <li><strong>المستخدمون:</strong> يُضاف المستخدمون الجدد فقط (لا يُغيّر الموجودين).</li>
-                            <li><strong>كلمات المرور:</strong> لا تتأثر أبداً.</li>
-                            <li><strong>الشواهد:</strong> تُضاف الشواهد الجديدة (تُتجاهل المكررة بنفس العنوان والتاريخ).</li>
-                            <li><strong>المرفقات والاعتمادات:</strong> تُستورد مع الشواهد الجديدة.</li>
-                        </ul>
+                        <div class="etec-card" style="flex: 1; min-width: 250px; text-align: center; cursor: pointer;" onclick="exportBackup()"><i class="fas fa-download" style="font-size: 48px; color: var(--etec-primary);"></i><h3>تصدير البيانات (JSON)</h3></div>
+                        <div class="etec-card" style="flex: 1; min-width: 250px; text-align: center; cursor: pointer;" onclick="document.getElementById('importMergeFile').click()"><i class="fas fa-file-import" style="font-size: 48px; color: var(--etec-primary);"></i><h3>استيراد ودمج</h3><input type="file" id="importMergeFile" accept=".json" style="display: none;" onchange="importMergeBackup(event)"></div>
                     </div>
                 </div>
             `;
@@ -2539,55 +2074,27 @@
         async function importMergeBackup(event) {
             const file = event.target.files[0];
             if (!file) return;
-            showConfirmModal(
-                '📥 تأكيد الاستيراد',
-                'سيتم إضافة البيانات من الملف إلى البيانات الحالية (بدون حذف الموجود). هل أنت متأكد؟',
-                async () => {
-                    const reader = new FileReader();
-                    reader.onload = async function(e) {
-                        try {
-                            const backupData = JSON.parse(e.target.result);
-                            if (!backupData.users || !backupData.evidences) {
-                                showErrorModal('خطأ', 'ملف النسخة الاحتياطية غير صالح');
-                                event.target.value = '';
-                                return;
-                            }
-                            showPrintProgressModal('جاري استيراد ودمج البيانات...');
-                            updatePrintProgress(0, 1);
-                            const result = await apiCall('/api/import-merge', { method: 'POST', body: { users: backupData.users, evidences: backupData.evidences } });
-                            updatePrintProgress(1, 1, 'اكتمل!');
-                            setTimeout(() => hidePrintProgressModal(), 500);
-                            if (result.success) {
-                                await loadUsersFromAPI();
-                                await loadEvidencesFromAPI();
-                                const info = result.imported;
-                                const message = `
-                                    <div style="text-align: right; line-height: 2;">
-                                        <strong>✅ المستخدمون:</strong><br>
-                                        &nbsp;&nbsp;• تمت إضافة <strong style="color: #27AE60;">${info.usersAdded}</strong> مستخدم جديد<br>
-                                        &nbsp;&nbsp;• تم تخطي <strong style="color: #E77B26;">${info.usersSkipped}</strong> مستخدم (موجود مسبقاً)<br>
-                                        <br>
-                                        <strong>✅ الشواهد:</strong><br>
-                                        &nbsp;&nbsp;• تمت إضافة <strong style="color: #27AE60;">${info.evidencesAdded}</strong> شاهد جديد<br>
-                                        &nbsp;&nbsp;• تم تخطي <strong style="color: #E77B26;">${info.evidencesSkipped}</strong> شاهد (موجود مسبقاً)
-                                    </div>
-                                `;
-                                showSuccessModal('🎉 تم الاستيراد بنجاح', message, () => showBackup());
-                            } else {
-                                showErrorModal('خطأ', result.error || 'فشل الاستيراد');
-                            }
-                        } catch (error) {
-                            hidePrintProgressModal();
-                            showErrorModal('خطأ', 'تعذر قراءة الملف: ' + error.message);
+            showConfirmModal('📥 تأكيد الاستيراد', 'سيتم إضافة البيانات من الملف إلى البيانات الحالية. هل أنت متأكد؟', async () => {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const backupData = JSON.parse(e.target.result);
+                        showPrintProgressModal('جاري استيراد ودمج البيانات...');
+                        const result = await apiCall('/api/import-merge', { method: 'POST', body: { users: backupData.users, evidences: backupData.evidences } });
+                        hidePrintProgressModal();
+                        if (result.success) {
+                            await loadUsersFromAPI();
+                            await loadEvidencesFromAPI();
+                            const info = result.imported;
+                            showSuccessModal('🎉 تم الاستيراد', `المستخدمون: +${info.usersAdded} | تم تخطي ${info.usersSkipped}<br>الشواهد: +${info.evidencesAdded} | تم تخطي ${info.evidencesSkipped}`, () => showBackup());
                         }
-                        event.target.value = '';
-                    };
-                    reader.readAsText(file);
-                }
-            );
+                    } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', error.message); }
+                    event.target.value = '';
+                };
+                reader.readAsText(file);
+            });
         }
 
-        // ====== Auto Refresh (كل 30 ثانية) ======
         let autoRefreshInterval = null;
         function startAutoRefresh() {
             if (autoRefreshInterval) clearInterval(autoRefreshInterval);
@@ -2603,23 +2110,18 @@
             if (autoRefreshInterval) { clearInterval(autoRefreshInterval); autoRefreshInterval = null; }
         }
 
-        // ====== Init + استعادة الجلسة ======
         (async function init() {
-            console.log('✅ منصة الاعتماد المدرسي - جاهزة');
+            console.log('✅ منصة الاعتماد المدرسي - جاهزة (مع R2)');
             console.log('API Base:', API_BASE);
             const savedUser = sessionStorage.getItem('currentUser');
             if (savedUser) {
                 try {
                     currentUser = JSON.parse(savedUser);
-                    console.log('✅ تم استعادة الجلسة للمستخدم:', currentUser.name);
                     await loadUsersFromAPI();
                     await loadEvidencesFromAPI();
                     showMainApp();
                     startAutoRefresh();
-                } catch (e) {
-                    console.error('فشل استعادة الجلسة:', e);
-                    sessionStorage.removeItem('currentUser');
-                }
+                } catch (e) { sessionStorage.removeItem('currentUser'); }
             }
         })();
     </script>
