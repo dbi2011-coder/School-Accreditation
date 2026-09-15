@@ -407,7 +407,7 @@
             }
         }
 
-        // رفع ملف إلى R2 عبر الـ Worker
+        // ✅ رفع ملف إلى R2 بدون أي ضغط - الجودة الأصلية 100%
         async function uploadFileToR2(file, evidenceId, fileType) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -423,7 +423,7 @@
                             }
                         });
                         if (result.success) {
-                            console.log(`✅ رُفع الملف إلى R2: ${result.key}`);
+                            console.log(`✅ رُفع الملف إلى R2 (بدون ضغط): ${result.key} - ${Math.round(file.size / 1024)} KB`);
                             resolve(result.key);
                         } else {
                             reject(new Error(result.error || 'فشل الرفع'));
@@ -451,7 +451,7 @@
                 const pdf = await pdfjsLib.getDocument(url).promise;
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 1.5 });
+                    const viewport = page.getViewport({ scale: 2.0 });
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     canvas.width = viewport.width;
@@ -555,7 +555,6 @@
         let users = [];
         let evidences = [];
         let currentUser = null;
-        let editingAppendixContext = null;
 
         async function loadUsersFromAPI() {
             try {
@@ -1255,15 +1254,16 @@
                 const standardId = document.getElementById('standardSelect').value;
                 const indicatorId = document.getElementById('indicatorSelect').value;
                 if (!domainId || !standardId || !indicatorId) { showErrorModal('تنبيه', 'الرجاء اختيار المجال والمعيار والمؤشر'); return; }
-                showPrintProgressModal('جاري رفع الملف...');
+                showPrintProgressModal('جاري رفع الملف (الجودة الأصلية)...');
                 try {
+                    // ✅ رفع PDF الأصلي بدون أي ضغط - جودة 100%
                     const pdfKey = await uploadFileToR2(pdfInput, 'new', 'application/pdf');
                     updatePrintProgress(100, 100, 'اكتمل الرفع!');
                     setTimeout(() => hidePrintProgressModal(), 300);
                     const result = await apiCall('/api/evidences', { method: 'POST', body: { domainId, standardId, indicatorId, title, readyMade: true, pdf: pdfKey, images: [], description: '', beneficiaries: '', implementers: [{ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel }], date: '', userId: currentUser.id, userName: currentUser.name, userRole: currentUser.roleLabel, status: currentUser.role === 'leader' ? 'approved' : 'pending' } });
                     if (result.success) {
                         await loadEvidencesFromAPI();
-                        showSuccessModal('تم الحفظ', 'تم حفظ الشاهد الجاهز بنجاح', () => showPreviousEvidences());
+                        showSuccessModal('تم الحفظ', 'تم حفظ الشاهد الجاهز بنجاح (جودة أصلية)', () => showPreviousEvidences());
                     }
                 } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر الحفظ: ' + error.message); }
                 return;
@@ -1279,7 +1279,7 @@
                 const pdfInput = document.getElementById('evPdf').files;
                 let pdfKeys = [];
                 if (filesInput.length === 0 && pdfInput.length === 0) { showErrorModal('تنبيه', 'الرجاء إرفاق صورة واحدة على الأقل أو ملف PDF'); return; }
-                showPrintProgressModal('جاري رفع المرفقات...');
+                showPrintProgressModal('جاري رفع المرفقات (الجودة الأصلية)...');
                 const totalFiles = filesInput.length + pdfInput.length;
                 let uploaded = 0;
                 try {
@@ -1315,17 +1315,19 @@
             const implementers = selectedImplementerIds.map(id => { const user = users.find(u => u.id === id); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
             const dateValue = getDateValue('ev');
             if (!dateValue) { showErrorModal('تنبيه', 'الرجاء اختيار التاريخ'); return; }
-            showPrintProgressModal('جاري رفع الملفات...');
+            showPrintProgressModal('جاري رفع الملفات (الجودة الأصلية)...');
             const totalFiles = Math.min(filesInput.length, 4) + (pdfInput ? 1 : 0);
             let uploaded = 0;
             try {
                 for (let i = 0; i < Math.min(filesInput.length, 4); i++) {
+                    // ✅ رفع الصور الأصلية بدون ضغط
                     const key = await uploadFileToR2(filesInput[i], 'new', filesInput[i].type || 'image/jpeg');
                     imageKeys.push(key);
                     uploaded++;
                     updatePrintProgress(uploaded, totalFiles, `جاري رفع الصور (${uploaded}/${totalFiles})`);
                 }
                 if (pdfInput) {
+                    // ✅ رفع PDF الأصلي بدون ضغط
                     pdfKey = await uploadFileToR2(pdfInput, 'new', 'application/pdf');
                     uploaded++;
                     updatePrintProgress(uploaded, totalFiles, `جاري رفع PDF (${uploaded}/${totalFiles})`);
@@ -1335,7 +1337,7 @@
                 const result = await apiCall('/api/evidences', { method: 'POST', body });
                 if (result.success) {
                     await loadEvidencesFromAPI();
-                    showSuccessModal('تم الحفظ', 'تم حفظ الشاهد بنجاح', () => showPreviousEvidences());
+                    showSuccessModal('تم الحفظ', 'تم حفظ الشاهد بنجاح (جودة أصلية)', () => showPreviousEvidences());
                 }
             } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر الحفظ: ' + error.message); }
         }
@@ -1553,7 +1555,7 @@
             const pdfInput = document.getElementById('editEvPdf').files[0];
             let pdfKey = evidence.pdf;
             if (pdfInput) {
-                showPrintProgressModal('جاري رفع PDF...');
+                showPrintProgressModal('جاري رفع PDF (الجودة الأصلية)...');
                 try { pdfKey = await uploadFileToR2(pdfInput, id, 'application/pdf'); }
                 catch (err) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر رفع PDF: ' + err.message); return; }
                 hidePrintProgressModal();
@@ -1594,7 +1596,7 @@
             const implementers = selectedImplementerIds.map(uid => { const user = users.find(u => u.id === uid); return { userId: user.id, userName: user.name, userRole: user.roleLabel }; });
             const dateValue = getDateValue('editEv');
             if (!dateValue) { showErrorModal('تنبيه', 'الرجاء اختيار التاريخ'); return; }
-            showPrintProgressModal('جاري رفع الملفات...');
+            showPrintProgressModal('جاري رفع الملفات (الجودة الأصلية)...');
             try {
                 if (filesInput.length > 0) {
                     imageKeys = [];
@@ -1633,7 +1635,7 @@
             if (evidence.appendices) evidence.appendices.forEach(app => { if (app.pdfs) app.pdfs.forEach(p => pdfUrls.push(getFileUrl(p))); });
             const printWindow = window.open('', '_blank', 'width=800,height=600');
             if (!printWindow) { hidePrintProgressModal(); showErrorModal('خطأ', 'الرجاء السماح بالنوافذ المنبثقة'); return; }
-            const pdfContainersHtml = pdfUrls.map((url, i) => `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${url}"></div></div>`).join('');
+            const pdfContainersHtml = pdfUrls.map((url) => `<div class="evidence-print-page pdf-only-page"><div class="pdf-container" data-pdf-url="${url}"></div></div>`).join('');
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
                 <title>طباعة شاهد - ${evidence.title}</title>
@@ -1648,7 +1650,7 @@
                                 const pdf = await pdfjsLib.getDocument(c.getAttribute('data-pdf-url')).promise;
                                 for (let p = 1; p <= pdf.numPages; p++) {
                                     const page = await pdf.getPage(p);
-                                    const viewport = page.getViewport({ scale: 1.5 });
+                                    const viewport = page.getViewport({ scale: 2.0 });
                                     const canvas = document.createElement('canvas');
                                     const ctx = canvas.getContext('2d');
                                     canvas.width = viewport.width; canvas.height = viewport.height;
@@ -1737,7 +1739,7 @@
                                 const pdf = await pdfjsLib.getDocument(c.getAttribute('data-pdf-url')).promise;
                                 for (let p = 1; p <= pdf.numPages; p++) {
                                     const page = await pdf.getPage(p);
-                                    const viewport = page.getViewport({ scale: 1.5 });
+                                    const viewport = page.getViewport({ scale: 2.0 });
                                     const canvas = document.createElement('canvas');
                                     const ctx = canvas.getContext('2d');
                                     canvas.width = viewport.width; canvas.height = viewport.height;
@@ -2099,7 +2101,7 @@
         }
 
         (async function init() {
-            console.log('✅ منصة الاعتماد المدرسي - جاهزة (مع R2)');
+            console.log('✅ منصة الاعتماد المدرسي - جاهزة (بدون ضغط - جودة 100%)');
             console.log('API Base:', API_BASE);
             const savedUser = sessionStorage.getItem('currentUser');
             if (savedUser) {
