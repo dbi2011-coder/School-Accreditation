@@ -151,6 +151,7 @@
         .modal-form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: var(--text-main); font-size: 14px; }
         .print-checkbox { width: 18px; height: 18px; cursor: pointer; accent-color: var(--etec-primary); }
         .report-page { background: #fff; padding: 40px; padding-bottom: 80px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; page-break-after: always; position: relative; min-height: 600px; }
+        .report-page:has(.pdf-container:only-child), .report-page.pdf-pages-container, .evidence-page:has(.pdf-container:only-child), .evidence-page.pdf-only-page, .evidence-print-page:has(.pdf-container:only-child) { page-break-after: auto !important; page-break-before: auto !important; page-break-inside: avoid !important; padding: 0 !important; margin: 0 !important; min-height: auto !important; height: auto !important; background: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important; }
         .cover-domain { display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; background: var(--etec-primary); color: white; padding: 40px; }
         .cover-domain h1 { font-size: 48px; font-weight: 800; }
         .cover-indicator { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; background: #fafafa; border: 8px solid var(--etec-primary); padding: 40px; }
@@ -193,14 +194,16 @@
         .disabled-fields-hint { background: #FFF8E7; border-right: 4px solid var(--etec-orange); padding: 10px 15px; border-radius: 8px; font-size: 13px; color: #8B5A00; margin-bottom: 15px; }
         .appendix-item { background: #fff; border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 15px; transition: all 0.2s; flex-wrap: wrap; }
         .appendix-item:hover { box-shadow: 0 4px 12px rgba(58,35,117,0.1); border-color: var(--etec-primary); }
+        .appendix-item.moved { animation: highlightAppendix 0.8s ease; }
+        @keyframes highlightAppendix { 0% { background: #FFF5F9; border-color: var(--etec-pink); } 100% { background: #fff; border-color: var(--border-color); } }
         .appendix-item .appendix-info { flex: 1; min-width: 200px; }
         .appendix-item .appendix-info h4 { color: var(--etec-primary); font-size: 15px; margin-bottom: 5px; }
         .appendix-item .appendix-info p { color: var(--text-muted); font-size: 13px; }
         .appendix-item .appendix-actions { display: flex; gap: 5px; flex-wrap: wrap; }
-        .appendix-order-btns { display: flex; flex-direction: column; gap: 2px; }
-        .appendix-order-btns button { background: var(--etec-primary); color: white; border: none; width: 28px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; }
-        .appendix-order-btns button:disabled { background: #CBD5E1; cursor: not-allowed; }
-        .appendix-order-btns button:not(:disabled):hover { background: var(--etec-pink); }
+        .appendix-order-btns { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+        .appendix-order-btns button { background: var(--etec-primary); color: white; border: none; width: 32px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .appendix-order-btns button:not(:disabled):hover { background: var(--etec-pink); transform: scale(1.1); }
+        .appendix-order-btns button:disabled { background: #CBD5E1; cursor: not-allowed; opacity: 0.5; }
         .appendix-thumbnails { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
         .appendix-thumbnails img { width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
         .appendix-pdf-badge { display: inline-flex; align-items: center; gap: 4px; background: #FFE9EC; color: #C82269; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin-left: 5px; }
@@ -263,7 +266,8 @@
             .activity-table th, .activity-table td { padding: 8px; font-size: 13px; }
             .principal-signature { bottom: 10px; left: 20px; font-size: 13px; }
             .appendix-item { flex-direction: column; align-items: stretch; }
-            .appendix-order-btns { flex-direction: row; justify-content: flex-start; }
+            .appendix-order-btns { flex-direction: row; justify-content: center; gap: 10px; margin-bottom: 10px; }
+            .appendix-order-btns button { width: 45px; height: 38px; font-size: 16px; }
             .date-radio-group { flex-direction: column; gap: 8px; }
             .date-radio-item { width: 100%; }
             .login-hero h1 { font-size: 22px; }
@@ -1499,33 +1503,44 @@
             const appendices = evidence.appendices || [];
             let appendicesHtml = '';
             if (appendices.length > 0) {
-                appendicesHtml = `<div class="etec-card" style="background: #FAFBFC; margin-top: 20px;"><div class="etec-card-header"><div class="etec-card-title"><i class="fas fa-paperclip"></i> الملاحق المضافة (${appendices.length})</div></div><div id="appendicesList">${appendices.map((app, idx) => {
-                    const imgCount = app.images ? app.images.length : 0;
-                    const pdfCount = app.pdfs ? app.pdfs.length : 0;
-                    return `<div class="appendix-item"><div class="appendix-info"><h4><i class="fas fa-paperclip"></i> ملحق ${idx + 1}</h4><p>${imgCount > 0 ? `<span style="color: var(--etec-primary);"><i class="fas fa-image"></i> ${imgCount} صورة</span>` : ''}${pdfCount > 0 ? ` <span class="appendix-pdf-badge"><i class="fas fa-file-pdf"></i> ${pdfCount} PDF</span>` : ''}</p></div><div class="appendix-actions"><button class="btn-etec-secondary btn-sm" onclick="editAppendix(${evidence.id}, '${app.id}')" title="تعديل الملحق"><i class="fas fa-edit"></i> تعديل</button><button class="btn-etec-danger btn-sm" onclick="deleteAppendix(${evidence.id}, '${app.id}')" title="حذف الملحق"><i class="fas fa-trash"></i> حذف</button></div></div>`;
-                }).join('')}</div></div>`;
+                appendicesHtml = `
+                    <div class="etec-card" style="background: #FAFBFC; margin-top: 20px;">
+                        <div class="etec-card-header"><div class="etec-card-title"><i class="fas fa-paperclip"></i> الملاحق المضافة (${appendices.length})</div></div>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;"><i class="fas fa-info-circle"></i> يمكنك تعديل ترتيب الملاحق، أو فتح ملحق للتعديل عليه، أو حذفه نهائياً.</p>
+                        <div id="appendicesList"></div>
+                    </div>
+                `;
             } else {
-                appendicesHtml = `<div class="etec-card" style="background: #FAFBFC; margin-top: 20px; text-align: center; color: var(--text-muted);"><p><i class="fas fa-paperclip"></i> لا توجد ملاحق مضافة لهذا الشاهد</p></div>`;
+                appendicesHtml = `<div class="etec-card" style="background: #FAFBFC; margin-top: 20px;"><div id="appendicesList"><div style="text-align: center; color: var(--text-muted); padding: 15px;"><p><i class="fas fa-paperclip"></i> لا توجد ملاحق مضافة لهذا الشاهد</p></div></div></div>`;
             }
             if (evidence.readyMade) {
                 document.getElementById('evidenceContent').innerHTML = `
                     <div class="etec-card">
                         <div class="etec-card-header"><div class="etec-card-title">تعديل الشاهد الجاهز</div></div>
                         <form onsubmit="updateReadyMadeEvidence(event, ${evidence.id})">
-                            <div class="form-group"><label>عنوان الشاهد</label><input type="text" id="editEvTitle" class="form-control" required value="${evidence.title}"></div>
+                            <div class="form-group"><label>المجال الرئيسي</label><select id="editDomainSelect" class="form-control" onchange="updateEditStandards()" required><option value="">اختر المجال</option>${domains.map(d => `<option value="${d.id}" ${d.id === evidence.domainId ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
+                            <div class="form-group"><label>المعيار</label><select id="editStandardSelect" class="form-control" onchange="updateEditIndicators()" required></select></div>
+                            <div class="form-group"><label>المؤشر</label><select id="editIndicatorSelect" class="form-control" required></select></div>
+                            <div class="form-group"><label>عنوان الشاهد (للقائمة فقط)</label><input type="text" id="editEvTitle" class="form-control" required value="${evidence.title}"></div>
                             <div class="form-group"><label>استبدال ملف PDF (اتركه فارغاً للإبقاء على الحالي)</label><input type="file" id="editEvPdf" class="form-control" accept=".pdf"></div>
-                            <button type="submit" class="btn-etec-primary" style="width: 100%;">تحديث</button>
+                            <button type="submit" class="btn-etec-primary" style="width: 100%;">تحديث الشاهد الجاهز</button>
                             <button type="button" class="btn-etec-secondary" onclick="showPreviousEvidences()" style="width: 100%; margin-top: 10px;">إلغاء</button>
                         </form>
                     </div>
                     ${appendicesHtml}
                 `;
+                updateEditStandards(evidence.standardId);
+                updateEditIndicators(evidence.indicatorId);
+                refreshAppendicesList(evidence.id);
                 return;
             }
             document.getElementById('evidenceContent').innerHTML = `
                 <div class="etec-card">
                     <div class="etec-card-header"><div class="etec-card-title">تعديل الشاهد</div></div>
                     <form onsubmit="updateEvidence(event, ${evidence.id})">
+                        <div class="form-group"><label>المجال الرئيسي</label><select id="editDomainSelect" class="form-control" onchange="updateEditStandards()" required><option value="">اختر المجال</option>${domains.map(d => `<option value="${d.id}" ${d.id === evidence.domainId ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
+                        <div class="form-group"><label>المعيار</label><select id="editStandardSelect" class="form-control" onchange="updateEditIndicators()" required></select></div>
+                        <div class="form-group"><label>المؤشر</label><select id="editIndicatorSelect" class="form-control" required></select></div>
                         <div class="form-group"><label>النشاط (عنوان الشاهد)</label><input type="text" id="editEvTitle" class="form-control" required value="${evidence.title}"></div>
                         <div class="form-group"><label>وصف النشاط وأهدافه</label><textarea id="editEvDesc" class="form-control" rows="3" required>${evidence.description}</textarea></div>
                         <div class="form-group"><label>المستفيدون</label><input type="text" id="editEvBeneficiaries" class="form-control" required value="${evidence.beneficiaries}"></div>
@@ -1539,6 +1554,270 @@
                 </div>
                 ${appendicesHtml}
             `;
+            updateEditStandards(evidence.standardId);
+            updateEditIndicators(evidence.indicatorId);
+            refreshAppendicesList(evidence.id);
+        }
+
+        // ============================================================
+        // ✅ دوال إدارة الملاحق (متكاملة مع API)
+        // ============================================================
+
+        function refreshAppendicesList(evidenceId) {
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) return;
+            const appendices = evidence.appendices || [];
+            const listContainer = document.getElementById('appendicesList');
+            if (!listContainer) return;
+
+            if (appendices.length === 0) {
+                listContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 15px;"><p><i class="fas fa-paperclip"></i> لا توجد ملاحق مضافة لهذا الشاهد</p></div>`;
+                return;
+            }
+
+            listContainer.innerHTML = appendices.map((app, idx) => {
+                const dateStr = app.date ? new Date(app.date).toLocaleString('ar-SA') : '-';
+                const imgCount = app.images ? app.images.length : 0;
+                const pdfCount = app.pdfs ? app.pdfs.length : 0;
+                const thumbnails = (app.images || []).slice(0, 6).map(img => `<img src="${getFileUrl(img)}">`).join('');
+                const plusMore = imgCount > 6 ? `<span style="align-self:center;color:var(--text-muted); font-size:12px;">+${imgCount - 6}</span>` : '';
+                return `<div class="appendix-item">
+                    <div class="appendix-order-btns">
+                        <button type="button" onclick="moveAppendix(${evidence.id}, ${idx}, -1)" ${idx === 0 ? 'disabled' : ''} title="تحريك للأعلى"><i class="fas fa-chevron-up"></i></button>
+                        <button type="button" onclick="moveAppendix(${evidence.id}, ${idx}, 1)" ${idx === appendices.length - 1 ? 'disabled' : ''} title="تحريك للأسفل"><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                    <div class="appendix-info">
+                        <h4><i class="fas fa-paperclip"></i> ملحق ${idx + 1}</h4>
+                        <p>📅 ${dateStr} | 👤 ${app.addedBy?.userName || app.userName || '-'}</p>
+                        <p>${imgCount > 0 ? `<span style="color: var(--etec-primary);"><i class="fas fa-image"></i> ${imgCount} صورة</span>` : ''}${pdfCount > 0 ? ` <span class="appendix-pdf-badge"><i class="fas fa-file-pdf"></i> ${pdfCount} PDF</span>` : ''}</p>
+                        ${imgCount > 0 ? `<div class="appendix-thumbnails">${thumbnails}${plusMore}</div>` : ''}
+                    </div>
+                    <div class="appendix-actions">
+                        <button type="button" class="btn-etec-secondary btn-sm" onclick="editAppendix(${evidence.id}, '${app.id}')" title="تعديل الملحق"><i class="fas fa-edit"></i> تعديل</button>
+                        <button type="button" class="btn-etec-danger btn-sm" onclick="deleteAppendix(${evidence.id}, '${app.id}')" title="حذف الملحق"><i class="fas fa-trash"></i> حذف</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function saveEvidenceWithAppendices(evidenceId) {
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) return false;
+            const body = {
+                domainId: evidence.domainId,
+                standardId: evidence.standardId,
+                indicatorId: evidence.indicatorId,
+                title: evidence.title,
+                description: evidence.description,
+                beneficiaries: evidence.beneficiaries,
+                date: evidence.date,
+                pdf: evidence.pdf,
+                implementers: evidence.implementers,
+                images: evidence.images,
+                appendices: evidence.appendices,
+                status: currentUser.role === 'leader' ? 'approved' : 'pending'
+            };
+            try {
+                const result = await apiCall(`/api/evidences/${evidenceId}`, { method: 'PUT', body });
+                if (result.success) {
+                    await loadEvidencesFromAPI();
+                    return true;
+                }
+                console.error('فشل الحفظ:', result.error);
+                return false;
+            } catch (e) {
+                console.error('Save evidence error:', e);
+                return false;
+            }
+        }
+
+        async function moveAppendix(evidenceId, index, direction) {
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence || !evidence.appendices) return;
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= evidence.appendices.length) return;
+
+            const temp = evidence.appendices[index];
+            evidence.appendices[index] = evidence.appendices[newIndex];
+            evidence.appendices[newIndex] = temp;
+
+            refreshAppendicesList(evidenceId);
+            const ok = await saveEvidenceWithAppendices(evidenceId);
+            if (ok) {
+                refreshAppendicesList(evidenceId);
+            } else {
+                showErrorModal('خطأ', 'تعذر حفظ الترتيب الجديد');
+            }
+        }
+
+        async function deleteAppendix(evidenceId, appendixId) {
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence || !evidence.appendices) return;
+            showConfirmModal('تأكيد حذف الملحق', 'هل أنت متأكد من حذف هذا الملحق نهائياً؟', async () => {
+                try {
+                    evidence.appendices = evidence.appendices.filter(a => String(a.id) !== String(appendixId));
+                    if (currentUser.role !== 'leader') { evidence.approvals = []; evidence.status = 'pending'; }
+                    const ok = await saveEvidenceWithAppendices(evidenceId);
+                    if (ok) {
+                        showSuccessModal('تم الحذف', `تم حذف الملحق بنجاح${currentUser.role !== 'leader' ? ' وإعادة الشاهد للاعتماد' : ''}`, () => editEvidence(evidenceId));
+                    } else {
+                        showErrorModal('خطأ', 'تعذر حفظ التغييرات');
+                    }
+                } catch (e) {
+                    showErrorModal('خطأ', 'تعذر الاتصال بالخادم');
+                }
+            });
+        }
+
+        function editAppendix(evidenceId, appendixId) {
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence || !evidence.appendices) { showErrorModal('خطأ', 'لم يتم العثور على الشاهد'); return; }
+            const app = evidence.appendices.find(a => String(a.id) === String(appendixId));
+            if (!app) { showErrorModal('خطأ', 'لم يتم العثور على الملحق'); return; }
+            const appIndex = evidence.appendices.findIndex(a => String(a.id) === String(appendixId));
+
+            editingAppendixContext = {
+                evidenceId,
+                appendixId: String(appendixId),
+                appIndex: appIndex
+            };
+
+            renderEditAppendixModal();
+        }
+
+        function renderEditAppendixModal() {
+            if (!editingAppendixContext) return;
+            const existing = document.getElementById('editAppendixModal');
+            if (existing) existing.remove();
+
+            const { evidenceId, appendixId, appIndex } = editingAppendixContext;
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) { closeEditAppendixModal(); return; }
+            const app = evidence.appendices.find(a => String(a.id) === String(appendixId));
+            if (!app) { closeEditAppendixModal(); return; }
+
+            let imagesHtml = '';
+            if (app.images && app.images.length > 0) {
+                imagesHtml = `<div style="margin-bottom: 15px;"><label style="display:block; margin-bottom:8px; font-weight:600;">الصور الحالية (${app.images.length}):</label>`;
+                app.images.forEach((img, idx) => {
+                    imagesHtml += `<div class="existing-media-item"><img src="${getFileUrl(img)}"><span class="file-name">صورة ${idx + 1}</span><button type="button" onclick="removeAppendixImage(${idx})" style="background: #E74C3C; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i> حذف</button></div>`;
+                });
+                imagesHtml += `</div>`;
+            } else {
+                imagesHtml = `<div style="margin-bottom: 15px; color: var(--text-muted); font-size: 13px;"><i class="fas fa-info-circle"></i> لا توجد صور حالية</div>`;
+            }
+
+            let pdfsHtml = '';
+            if (app.pdfs && app.pdfs.length > 0) {
+                pdfsHtml = `<div style="margin-bottom: 15px;"><label style="display:block; margin-bottom:8px; font-weight:600;">ملفات PDF الحالية (${app.pdfs.length}):</label>`;
+                app.pdfs.forEach((pdfKey, idx) => {
+                    pdfsHtml += `<div class="existing-media-item"><i class="fas fa-file-pdf" style="font-size: 40px; color: #C82269;"></i><span class="file-name">ملف PDF ${idx + 1}</span><button type="button" onclick="removeAppendixPdf(${idx})" style="background: #E74C3C; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i> حذف</button></div>`;
+                });
+                pdfsHtml += `</div>`;
+            } else {
+                pdfsHtml = `<div style="margin-bottom: 15px; color: var(--text-muted); font-size: 13px;"><i class="fas fa-info-circle"></i> لا توجد ملفات PDF حالية</div>`;
+            }
+
+            const modalHtml = `<div class="modal-overlay" id="editAppendixModal"><div class="modal-content" style="max-width: 650px;"><div class="modal-header primary"><div class="modal-icon"><i class="fas fa-paperclip"></i></div><div class="modal-title">تعديل الملحق ${appIndex + 1}</div><button class="modal-close-btn" onclick="closeEditAppendixModal()"><i class="fas fa-times"></i></button></div><div class="modal-body"><p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;"><i class="fas fa-info-circle"></i> يمكنك حذف صور أو ملفات PDF موجودة، وإضافة صور وملفات PDF جديدة.</p>${imagesHtml}${pdfsHtml}<div class="modal-form-group"><label>إضافة صور جديدة</label><input type="file" id="appendixAddImages" class="modal-input" accept="image/*" multiple></div><div class="modal-form-group"><label>إضافة ملفات PDF جديدة</label><input type="file" id="appendixAddPdfs" class="modal-input" accept=".pdf" multiple></div></div><div class="modal-footer"><button class="modal-btn modal-btn-success" onclick="saveAppendixChanges()"><i class="fas fa-save"></i> حفظ التعديلات</button><button class="modal-btn modal-btn-secondary" onclick="closeEditAppendixModal()"><i class="fas fa-times"></i> إلغاء</button></div></div></div>`;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function closeEditAppendixModal() {
+            const m = document.getElementById('editAppendixModal');
+            if (m) m.remove();
+            editingAppendixContext = null;
+        }
+
+        function removeAppendixImage(imgIdx) {
+            if (!editingAppendixContext) return;
+            const { evidenceId, appendixId } = editingAppendixContext;
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) return;
+            const app = evidence.appendices.find(a => String(a.id) === String(appendixId));
+            if (!app || !app.images) return;
+            app.images.splice(imgIdx, 1);
+            renderEditAppendixModal();
+        }
+
+        function removeAppendixPdf(pdfIdx) {
+            if (!editingAppendixContext) return;
+            const { evidenceId, appendixId } = editingAppendixContext;
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) return;
+            const app = evidence.appendices.find(a => String(a.id) === String(appendixId));
+            if (!app || !app.pdfs) return;
+            app.pdfs.splice(pdfIdx, 1);
+            renderEditAppendixModal();
+        }
+
+        async function saveAppendixChanges() {
+            if (!editingAppendixContext) return;
+            const { evidenceId, appendixId } = editingAppendixContext;
+            const evidence = evidences.find(e => e.id === evidenceId);
+            if (!evidence) { closeEditAppendixModal(); return; }
+            const app = evidence.appendices.find(a => String(a.id) === String(appendixId));
+            if (!app) { closeEditAppendixModal(); return; }
+
+            const newImagesInput = document.getElementById('appendixAddImages');
+            const newPdfsInput = document.getElementById('appendixAddPdfs');
+            const totalNew = (newImagesInput?.files.length || 0) + (newPdfsInput?.files.length || 0);
+
+            let uploaded = 0;
+            if (totalNew > 0) {
+                showPrintProgressModal('جاري رفع الملفات الجديدة...');
+                try {
+                    if (newImagesInput && newImagesInput.files.length > 0) {
+                        if (!app.images) app.images = [];
+                        for (let i = 0; i < newImagesInput.files.length; i++) {
+                            const key = await uploadFileToR2(newImagesInput.files[i], evidenceId, newImagesInput.files[i].type || 'image/jpeg');
+                            app.images.push(key);
+                            uploaded++;
+                            updatePrintProgress(uploaded, totalNew, `جاري رفع الصور (${uploaded}/${totalNew})`);
+                        }
+                    }
+                    if (newPdfsInput && newPdfsInput.files.length > 0) {
+                        if (!app.pdfs) app.pdfs = [];
+                        for (let i = 0; i < newPdfsInput.files.length; i++) {
+                            const key = await uploadFileToR2(newPdfsInput.files[i], evidenceId, 'application/pdf');
+                            app.pdfs.push(key);
+                            uploaded++;
+                            updatePrintProgress(uploaded, totalNew, `جاري رفع الملفات (${uploaded}/${totalNew})`);
+                        }
+                    }
+                    hidePrintProgressModal();
+                } catch (err) {
+                    hidePrintProgressModal();
+                    showErrorModal('خطأ', 'تعذر رفع الملفات: ' + err.message);
+                    return;
+                }
+            }
+
+            if (currentUser.role !== 'leader') { evidence.approvals = []; evidence.status = 'pending'; }
+
+            const ok = await saveEvidenceWithAppendices(evidenceId);
+            if (ok) {
+                closeEditAppendixModal();
+                showSuccessModal('تم التعديل', `تم حفظ تعديلات الملحق بنجاح${currentUser.role !== 'leader' ? ' وإعادة الشاهد للاعتماد' : ''}`, () => editEvidence(evidenceId));
+            } else {
+                showErrorModal('خطأ', 'تعذر حفظ التغييرات');
+            }
+        }
+
+        function updateEditStandards(selectedStandardId = null) {
+            const dId = parseInt(document.getElementById('editDomainSelect').value);
+            const d = domains.find(x => x.id === dId);
+            const stdSelect = document.getElementById('editStandardSelect');
+            stdSelect.innerHTML = d ? d.standards.map(s => `<option value="${s.id}" ${s.id === selectedStandardId ? 'selected' : ''}>${s.name}</option>`).join('') : '<option value="">اختر المعيار</option>';
+            updateEditIndicators();
+        }
+
+        function updateEditIndicators(selectedIndicatorId = null) {
+            const dId = parseInt(document.getElementById('editDomainSelect').value);
+            const sId = document.getElementById('editStandardSelect').value;
+            const d = domains.find(x => x.id === dId);
+            const s = d ? d.standards.find(x => x.id === sId) : null;
+            const indSelect = document.getElementById('editIndicatorSelect');
+            indSelect.innerHTML = s ? s.indicators.map(i => `<option value="${i.id}" ${i.id === selectedIndicatorId ? 'selected' : ''}>${i.name}</option>`).join('') : '<option value="">اختر المؤشر</option>';
         }
 
         async function updateReadyMadeEvidence(e, id) {
@@ -1555,7 +1834,12 @@
                 catch (err) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر رفع PDF: ' + err.message); return; }
                 hidePrintProgressModal();
             }
-            const body = { domainId: evidence.domainId, standardId: evidence.standardId, indicatorId: evidence.indicatorId, title, description: evidence.description, beneficiaries: evidence.beneficiaries, date: evidence.date, pdf: pdfKey, implementers: evidence.implementers, images: evidence.images, appendices: evidence.appendices, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
+            evidence.domainId = parseInt(document.getElementById('editDomainSelect').value);
+            evidence.standardId = document.getElementById('editStandardSelect').value;
+            evidence.indicatorId = document.getElementById('editIndicatorSelect').value;
+            evidence.title = title;
+            evidence.pdf = pdfKey;
+            const body = { domainId: evidence.domainId, standardId: evidence.standardId, indicatorId: evidence.indicatorId, title, description: evidence.description, beneficiaries: evidence.beneficiaries, date: evidence.date, pdf: evidence.pdf, implementers: evidence.implementers, images: evidence.images, appendices: evidence.appendices, status: currentUser.role === 'leader' ? 'approved' : 'pending' };
             try {
                 const result = await apiCall(`/api/evidences/${id}`, { method: 'PUT', body });
                 if (result.success) {
@@ -1565,190 +1849,12 @@
             } catch (error) { showErrorModal('خطأ', 'تعذر التحديث'); }
         }
 
-        // ============================================================
-        // ✅ دوال إدارة الملاحق (حذف، تعديل، إضافة صور جديدة)
-        // ============================================================
-
-        async function deleteAppendix(evidenceId, appendixId) {
-            const evidence = evidences.find(e => e.id === evidenceId);
-            if (!evidence) { showErrorModal('خطأ', 'لم يتم العثور على الشاهد'); return; }
-            showConfirmModal('تأكيد حذف الملحق', 'هل أنت متأكد من حذف هذا الملحق نهائياً؟', async () => {
-                try {
-                    const updatedAppendices = (evidence.appendices || []).filter(a => String(a.id) !== String(appendixId));
-                    const body = {
-                        domainId: evidence.domainId,
-                        standardId: evidence.standardId,
-                        indicatorId: evidence.indicatorId,
-                        title: evidence.title,
-                        description: evidence.description,
-                        beneficiaries: evidence.beneficiaries,
-                        date: evidence.date,
-                        pdf: evidence.pdf,
-                        implementers: evidence.implementers,
-                        images: evidence.images,
-                        appendices: updatedAppendices,
-                        status: currentUser.role === 'leader' ? 'approved' : 'pending'
-                    };
-                    const result = await apiCall(`/api/evidences/${evidenceId}`, { method: 'PUT', body });
-                    if (result.success) {
-                        await loadEvidencesFromAPI();
-                        showSuccessModal('تم الحذف', `تم حذف الملحق بنجاح${currentUser.role !== 'leader' ? ' وإعادة الشاهد للاعتماد' : ''}`, () => editEvidence(evidenceId));
-                    } else {
-                        showErrorModal('خطأ', result.error || 'تعذر الحذف');
-                    }
-                } catch (error) {
-                    showErrorModal('خطأ', 'تعذر الاتصال بالخادم');
-                }
-            });
-        }
-
-        function editAppendix(evidenceId, appendixId) {
-            const evidence = evidences.find(e => e.id === evidenceId);
-            if (!evidence || !evidence.appendices) { showErrorModal('خطأ', 'لم يتم العثور على الشاهد'); return; }
-            const app = evidence.appendices.find(a => String(a.id) === String(appendixId));
-            if (!app) { showErrorModal('خطأ', 'لم يتم العثور على الملحق'); return; }
-
-            editingAppendixContext = {
-                evidenceId,
-                appendixId: String(appendixId),
-                currentImages: app.images ? [...app.images] : [],
-                currentPdfs: app.pdfs ? [...app.pdfs] : []
-            };
-
-            renderEditAppendixModal();
-        }
-
-        function renderEditAppendixModal() {
-            if (!editingAppendixContext) return;
-            const existing = document.getElementById('editAppendixModal');
-            if (existing) existing.remove();
-
-            const { currentImages, currentPdfs } = editingAppendixContext;
-
-            let imagesHtml = '';
-            if (currentImages.length > 0) {
-                imagesHtml = `<div style="margin-bottom: 15px;"><label style="display:block; margin-bottom:8px; font-weight:600;">الصور الحالية (${currentImages.length}):</label>`;
-                currentImages.forEach((img, idx) => {
-                    imagesHtml += `<div class="existing-media-item"><img src="${getFileUrl(img)}"><span class="file-name">صورة ${idx + 1}</span><button type="button" onclick="removeAppendixImage(${idx})" style="background: #E74C3C; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i> حذف</button></div>`;
-                });
-                imagesHtml += `</div>`;
-            } else {
-                imagesHtml = `<div style="margin-bottom: 15px; color: var(--text-muted); font-size: 13px;"><i class="fas fa-info-circle"></i> لا توجد صور حالية</div>`;
-            }
-
-            let pdfsHtml = '';
-            if (currentPdfs.length > 0) {
-                pdfsHtml = `<div style="margin-bottom: 15px;"><label style="display:block; margin-bottom:8px; font-weight:600;">ملفات PDF الحالية (${currentPdfs.length}):</label>`;
-                currentPdfs.forEach((pdfKey, idx) => {
-                    pdfsHtml += `<div class="existing-media-item"><i class="fas fa-file-pdf" style="font-size: 40px; color: #C82269;"></i><span class="file-name">ملف PDF ${idx + 1}</span><button type="button" onclick="removeAppendixPdf(${idx})" style="background: #E74C3C; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer;"><i class="fas fa-times"></i> حذف</button></div>`;
-                });
-                pdfsHtml += `</div>`;
-            } else {
-                pdfsHtml = `<div style="margin-bottom: 15px; color: var(--text-muted); font-size: 13px;"><i class="fas fa-info-circle"></i> لا توجد ملفات PDF حالية</div>`;
-            }
-
-            const modalHtml = `<div class="modal-overlay" id="editAppendixModal"><div class="modal-content" style="max-width: 650px;"><div class="modal-header primary"><div class="modal-icon"><i class="fas fa-paperclip"></i></div><div class="modal-title">تعديل الملحق</div><button class="modal-close-btn" onclick="closeEditAppendixModal()"><i class="fas fa-times"></i></button></div><div class="modal-body"><p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;"><i class="fas fa-info-circle"></i> يمكنك حذف صور أو ملفات PDF موجودة، وإضافة صور وملفات PDF جديدة.</p>${imagesHtml}${pdfsHtml}<div class="modal-form-group"><label>إضافة صور جديدة</label><input type="file" id="appendixAddImages" class="modal-input" accept="image/*" multiple></div><div class="modal-form-group"><label>إضافة ملفات PDF جديدة</label><input type="file" id="appendixAddPdfs" class="modal-input" accept=".pdf" multiple></div></div><div class="modal-footer"><button class="modal-btn modal-btn-success" onclick="saveAppendixChanges()"><i class="fas fa-save"></i> حفظ التعديلات</button><button class="modal-btn modal-btn-secondary" onclick="closeEditAppendixModal()"><i class="fas fa-times"></i> إلغاء</button></div></div></div>`;
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-        }
-
-        function closeEditAppendixModal() {
-            const m = document.getElementById('editAppendixModal');
-            if (m) m.remove();
-            editingAppendixContext = null;
-        }
-
-        function removeAppendixImage(imgIdx) {
-            if (!editingAppendixContext) return;
-            editingAppendixContext.currentImages.splice(imgIdx, 1);
-            renderEditAppendixModal();
-        }
-
-        function removeAppendixPdf(pdfIdx) {
-            if (!editingAppendixContext) return;
-            editingAppendixContext.currentPdfs.splice(pdfIdx, 1);
-            renderEditAppendixModal();
-        }
-
-        async function saveAppendixChanges() {
-            if (!editingAppendixContext) return;
-            const { evidenceId, appendixId, currentImages, currentPdfs } = editingAppendixContext;
-
-            const evidence = evidences.find(e => e.id === evidenceId);
-            if (!evidence) { closeEditAppendixModal(); return; }
-
-            const newImagesInput = document.getElementById('appendixAddImages');
-            const newPdfsInput = document.getElementById('appendixAddPdfs');
-
-            const totalNew = (newImagesInput?.files.length || 0) + (newPdfsInput?.files.length || 0);
-
-            showPrintProgressModal('جاري حفظ التعديلات...');
-            let uploaded = 0;
-
-            try {
-                const finalImages = [...currentImages];
-                const finalPdfs = [...currentPdfs];
-
-                if (newImagesInput && newImagesInput.files.length > 0) {
-                    for (let i = 0; i < newImagesInput.files.length; i++) {
-                        const key = await uploadFileToR2(newImagesInput.files[i], evidenceId, newImagesInput.files[i].type || 'image/jpeg');
-                        finalImages.push(key);
-                        uploaded++;
-                        updatePrintProgress(uploaded, totalNew, `جاري رفع الصور (${uploaded}/${totalNew})`);
-                    }
-                }
-
-                if (newPdfsInput && newPdfsInput.files.length > 0) {
-                    for (let i = 0; i < newPdfsInput.files.length; i++) {
-                        const key = await uploadFileToR2(newPdfsInput.files[i], evidenceId, 'application/pdf');
-                        finalPdfs.push(key);
-                        uploaded++;
-                        updatePrintProgress(uploaded, totalNew, `جاري رفع الملفات (${uploaded}/${totalNew})`);
-                    }
-                }
-
-                const updatedAppendices = (evidence.appendices || []).map(a => {
-                    if (String(a.id) === String(appendixId)) {
-                        return { ...a, images: finalImages, pdfs: finalPdfs };
-                    }
-                    return a;
-                });
-
-                const body = {
-                    domainId: evidence.domainId,
-                    standardId: evidence.standardId,
-                    indicatorId: evidence.indicatorId,
-                    title: evidence.title,
-                    description: evidence.description,
-                    beneficiaries: evidence.beneficiaries,
-                    date: evidence.date,
-                    pdf: evidence.pdf,
-                    implementers: evidence.implementers,
-                    images: evidence.images,
-                    appendices: updatedAppendices,
-                    status: currentUser.role === 'leader' ? 'approved' : 'pending'
-                };
-
-                const result = await apiCall(`/api/evidences/${evidenceId}`, { method: 'PUT', body });
-
-                hidePrintProgressModal();
-
-                if (result.success) {
-                    closeEditAppendixModal();
-                    await loadEvidencesFromAPI();
-                    showSuccessModal('تم التعديل', `تم حفظ تعديلات الملحق بنجاح${currentUser.role !== 'leader' ? ' وإعادة الشاهد للاعتماد' : ''}`, () => editEvidence(evidenceId));
-                } else {
-                    showErrorModal('خطأ', result.error || 'تعذر حفظ التعديلات');
-                }
-            } catch (error) {
-                hidePrintProgressModal();
-                showErrorModal('خطأ', 'تعذر حفظ التعديلات: ' + error.message);
-            }
-        }
-
         async function updateEvidence(e, id) {
             e.preventDefault();
             const evidence = evidences.find(ev => ev.id === id);
             if (!evidence) return;
+            const canEdit = evidence.userId === currentUser.id || (evidence.implementers && evidence.implementers.some(imp => imp.userId === currentUser.id));
+            if (!canEdit && currentUser.role !== 'leader') { showErrorModal('خطأ', 'ليس لديك صلاحية لتعديل هذا الشاهد'); return; }
             const filesInput = document.getElementById('editEvImages').files;
             let imageKeys = evidence.images;
             const pdfInput = document.getElementById('editEvPdf').files[0];
@@ -1780,6 +1886,20 @@
                     showSuccessModal('تم التحديث', 'تم تحديث الشاهد', () => showPreviousEvidences());
                 }
             } catch (error) { hidePrintProgressModal(); showErrorModal('خطأ', 'تعذر التحديث: ' + error.message); }
+        }
+
+        function getImagesGridHtml(images) {
+            if (!images || images.length === 0) return '';
+            let gridClass;
+            if (images.length === 1) gridClass = 'images-grid-1';
+            else if (images.length === 2) gridClass = 'images-grid-2';
+            else if (images.length === 3) gridClass = 'images-grid-3';
+            else if (images.length === 4) gridClass = 'images-grid-4';
+            else gridClass = 'images-grid-6';
+            let html = `<div class="${gridClass}">`;
+            images.forEach(imgSrc => { html += `<div class="media-image"><img src="${imgSrc}" alt="صورة الشاهد"></div>`; });
+            html += '</div>';
+            return html;
         }
 
         async function printSingleEvidence(evidenceId) {
@@ -2191,7 +2311,13 @@
                         else if (approvedCount <= 4) { statusLabel = 'متوسط'; statusClass = 'badge-medium'; }
                         else if (approvedCount === 5) { statusLabel = 'مرتفع'; statusClass = 'badge-high'; }
                         else { statusLabel = 'مرتفع جداً'; statusClass = 'badge-very-high'; }
-                        tableHTML += `<tr><td data-label="المجال">${domain.name}</td><td data-label="المعيار">${standard.name}</td><td class="evidence-title-cell" data-label="المؤشر">${indicator.name}</td><td data-label="عدد الشواهد" style="text-align: center;">${approvedCount}</td><td class="status-cell" data-label="الحالة"><span class="badge-level ${statusClass}">${statusLabel}</span></td></tr>`;
+                        tableHTML += `<tr>
+                            <td data-label="المجال">${domain.name}</td>
+                            <td data-label="المعيار">${standard.name}</td>
+                            <td class="evidence-title-cell" data-label="المؤشر">${indicator.name}</td>
+                            <td data-label="عدد الشواهد المعتمدة" style="text-align: center;">${approvedCount}</td>
+                            <td class="status-cell" data-label="الحالة"><span class="badge-level ${statusClass}">${statusLabel}</span></td>
+                        </tr>`;
                     });
                 });
             });
@@ -2264,7 +2390,7 @@
         }
 
         (async function init() {
-            console.log('✅ منصة الاعتماد المدرسي - جاهزة (مع إدارة الملاحق الكاملة)');
+            console.log('✅ منصة الاعتماد المدرسي - جاهزة (مع إدارة الملاحق المتكاملة مع API)');
             console.log('API Base:', API_BASE);
             const savedUser = sessionStorage.getItem('currentUser');
             if (savedUser) {
